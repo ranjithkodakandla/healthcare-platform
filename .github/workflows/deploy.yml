@@ -42,19 +42,9 @@ env:
   AR_REPO: ${{ vars.AR_REPO || 'sahayak-dev' }}
 
 jobs:
-  quality:
-    name: Pre-deploy quality gates
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_quality == true) }}
-    uses: ./.github/workflows/reusable-quality.yml
-    with:
-      run_e2e: true
-    secrets: inherit
-
-  resolve:
+  plan:
     name: Resolve deploy targets
     runs-on: ubuntu-latest
-    needs: [quality]
-    if: always() && (needs.quality.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.skip_quality == true))
     outputs:
       environment: ${{ steps.meta.outputs.environment }}
       image_tag: ${{ steps.meta.outputs.image_tag }}
@@ -62,6 +52,7 @@ jobs:
       deploy_citizen: ${{ steps.meta.outputs.deploy_citizen }}
       deploy_provider: ${{ steps.meta.outputs.deploy_provider }}
       deploy_admin: ${{ steps.meta.outputs.deploy_admin }}
+      skip_quality: ${{ steps.meta.outputs.skip_quality }}
     steps:
       - id: meta
         run: |
@@ -75,7 +66,6 @@ jobs:
           if [[ -z "$TAG" ]]; then
             TAG="${GITHUB_SHA::12}"
           fi
-          # Push/merge to main always deploys all services; manual/tag keep input (default all).
           SVC="${{ github.event.inputs.services || 'all' }}"
           api=false; cit=false; prov=false; adm=false
           if [[ "$SVC" == "all" ]]; then
@@ -86,6 +76,10 @@ jobs:
             [[ "$SVC" == *provider* ]] && prov=true
             [[ "$SVC" == *admin* ]] && adm=true
           fi
+          SKIP=false
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.skip_quality }}" == "true" ]]; then
+            SKIP=true
+          fi
           {
             echo "environment=$ENV"
             echo "image_tag=$TAG"
@@ -93,14 +87,25 @@ jobs:
             echo "deploy_citizen=$cit"
             echo "deploy_provider=$prov"
             echo "deploy_admin=$adm"
+            echo "skip_quality=$SKIP"
           } >> "$GITHUB_OUTPUT"
+          echo "plan: env=$ENV tag=$TAG api=$api citizen=$cit provider=$prov admin=$adm skip_quality=$SKIP"
+
+  quality:
+    name: Pre-deploy quality gates
+    needs: [plan]
+    if: ${{ needs.plan.outputs.skip_quality != 'true' }}
+    uses: ./.github/workflows/reusable-quality.yml
+    with:
+      run_e2e: true
+    secrets: inherit
 
   deploy-api:
     name: Deploy API → Cloud Run
-    needs: [resolve]
-    if: needs.resolve.outputs.deploy_api == 'true'
+    needs: [plan, quality]
+    if: ${{ always() && needs.plan.outputs.deploy_api == 'true' && (needs.quality.result == 'success' || needs.plan.outputs.skip_quality == 'true') }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve.outputs.environment }}
+    environment: ${{ needs.plan.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -112,7 +117,7 @@ jobs:
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
       - name: Build & push API image
         env:
-          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/api:${{ needs.resolve.outputs.image_tag }}
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/api:${{ needs.plan.outputs.image_tag }}
         run: |
           docker build -f apps/api/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
@@ -142,10 +147,10 @@ jobs:
 
   deploy-citizen:
     name: Deploy Citizen → Cloud Run
-    needs: [resolve]
-    if: needs.resolve.outputs.deploy_citizen == 'true'
+    needs: [plan, quality]
+    if: ${{ always() && needs.plan.outputs.deploy_citizen == 'true' && (needs.quality.result == 'success' || needs.plan.outputs.skip_quality == 'true') }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve.outputs.environment }}
+    environment: ${{ needs.plan.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -158,7 +163,7 @@ jobs:
         env:
           APP: citizen-app
           SERVICE: ${{ vars.CLOUD_RUN_CITIZEN_SERVICE || 'sahayak-dev-citizen' }}
-          TAG: ${{ needs.resolve.outputs.image_tag }}
+          TAG: ${{ needs.plan.outputs.image_tag }}
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
@@ -170,10 +175,10 @@ jobs:
 
   deploy-provider:
     name: Deploy Provider → Cloud Run
-    needs: [resolve]
-    if: needs.resolve.outputs.deploy_provider == 'true'
+    needs: [plan, quality]
+    if: ${{ always() && needs.plan.outputs.deploy_provider == 'true' && (needs.quality.result == 'success' || needs.plan.outputs.skip_quality == 'true') }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve.outputs.environment }}
+    environment: ${{ needs.plan.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -186,7 +191,7 @@ jobs:
         env:
           APP: provider-portal
           SERVICE: ${{ vars.CLOUD_RUN_PROVIDER_SERVICE || 'sahayak-dev-provider' }}
-          TAG: ${{ needs.resolve.outputs.image_tag }}
+          TAG: ${{ needs.plan.outputs.image_tag }}
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
@@ -198,10 +203,10 @@ jobs:
 
   deploy-admin:
     name: Deploy Admin → Cloud Run
-    needs: [resolve]
-    if: needs.resolve.outputs.deploy_admin == 'true'
+    needs: [plan, quality]
+    if: ${{ always() && needs.plan.outputs.deploy_admin == 'true' && (needs.quality.result == 'success' || needs.plan.outputs.skip_quality == 'true') }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve.outputs.environment }}
+    environment: ${{ needs.plan.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -214,7 +219,7 @@ jobs:
         env:
           APP: admin-console
           SERVICE: ${{ vars.CLOUD_RUN_ADMIN_SERVICE || 'sahayak-dev-admin' }}
-          TAG: ${{ needs.resolve.outputs.image_tag }}
+          TAG: ${{ needs.plan.outputs.image_tag }}
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
