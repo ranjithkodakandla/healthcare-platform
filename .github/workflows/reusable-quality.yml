@@ -169,7 +169,7 @@ jobs:
       - name: Secret scan
         run: npm run secrets:scan
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         continue-on-error: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
