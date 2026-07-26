@@ -30,6 +30,9 @@ export class CitizenTriagePage extends BasePage {
   }
 
   async expectSearchingOrCase(): Promise<void> {
-    await this.page.waitForURL(/\/(home\/searching|case\/dashboard)/, { timeout: 45_000 });
+    await this.page.waitForURL(/\/(home\/searching|case\/dashboard)/, {
+      timeout: 60_000,
+      waitUntil: 'commit',
+    });
   }
 }

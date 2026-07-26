@@ -13,8 +13,9 @@ export class CitizenSplashPage extends BasePage {
     await english.click();
     const continueBtn = this.page.getByRole('button', { name: /Continue in English/i });
     await expect(continueBtn).toBeVisible({ timeout: 10_000 });
+    // Next.js client navigations often never fire a full "load" event on Cloud Run.
     await Promise.all([
-      this.page.waitForURL(/\/onboarding\/guest/, { timeout: 45_000 }),
+      this.page.waitForURL(/\/onboarding\/guest/, { timeout: 60_000, waitUntil: 'commit' }),
       continueBtn.click(),
     ]);
   }

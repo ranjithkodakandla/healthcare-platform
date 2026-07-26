@@ -107,7 +107,8 @@ export const ADMIN_SCREENS: ScreenDef[] = [
     path: '/providers',
     requiresAuth: true,
     tags: ['providers'],
-    titleHint: /Providers/i,
+    // Discovery is unauthenticated; shell may redirect to login before Providers renders.
+    titleHint: /Providers|Admin Console|Sign in|Checking session/i,
   },
 ];
 

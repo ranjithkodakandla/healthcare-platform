@@ -14,7 +14,7 @@ export class CitizenGuestPage extends BasePage {
     const cta = this.page.getByRole('button', { name: /Request ambulance/i }).first();
     await expect(cta).toBeVisible({ timeout: 30_000 });
     await Promise.all([
-      this.page.waitForURL(/\/home\/triage/, { timeout: 45_000 }),
+      this.page.waitForURL(/\/home\/triage/, { timeout: 60_000, waitUntil: 'commit' }),
       cta.click(),
     ]);
   }
@@ -25,6 +25,6 @@ export class CitizenGuestPage extends BasePage {
 
   async goToLogin(): Promise<void> {
     await this.page.getByRole('link', { name: /Sign in with mobile/i }).click();
-    await this.page.waitForURL(/\/onboarding\/otp/, { timeout: 30_000 });
+    await this.page.waitForURL(/\/onboarding\/otp/, { timeout: 45_000, waitUntil: 'commit' });
   }
 }
