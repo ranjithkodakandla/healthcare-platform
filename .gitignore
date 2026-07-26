@@ -49,6 +49,8 @@ coverage/
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
+tfplan*
+*.tfplan
 
 # IDE
 .idea/
