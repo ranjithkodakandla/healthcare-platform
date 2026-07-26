@@ -98,8 +98,8 @@ Artifacts: uploaded as `*-coverage` from CI; locally under each package’s `cov
 | Metric    | Value                                                         |
 | --------- | ------------------------------------------------------------- |
 | Projects  | citizen, provider, admin, platform (+ a11y)                   |
-| Result    | **178 passed** (+ **3** a11y)                                 |
-| Artifacts | HTML report, traces (`on`), screenshots (`on`), videos (`on`) |
+| Result    | **178 passed** (+ **3** a11y); CI workflow success on `main`  |
+| Artifacts | HTML report; local/demo: full video/trace/screenshot; CI: retain-on-failure |
 | Targets   | Cloud Run `dev` URLs (overridable via `E2E_*`)                |
 
 ---
@@ -152,6 +152,7 @@ Rationale:
 
 - Repository hygiene, community standards, and reusable CI quality gates are in place.
 - Local full quality run succeeded (unit/lint/build/audit/secrets + Playwright 178 + a11y 3).
+- GitHub Actions CI + CodeQL **green on `main`** (run after Session 34 hardenings).
 - Cloud Run deploy path is automated in Actions pending WIF/env secrets.
 
 ### **CONDITIONAL — for production cutover**
