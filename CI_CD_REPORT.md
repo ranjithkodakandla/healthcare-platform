@@ -61,11 +61,11 @@ tag / dispatch → quality → Artifact Registry → Cloud Run (env-gated)
 | OpenAPI contract       | validate                          | ✅ (CI job)                             |
 | Dependency audit       | fail High/Critical                | ✅ (OSV fallback when registry blocked) |
 | Secret scan            | clean tree                        | ✅                                      |
-| Playwright regression  | 100% pass                         | ✅ **178 passed**                       |
-| Accessibility          | a11y project                      | ✅ **3 passed**                         |
+| Playwright regression  | 100% pass                         | ✅ **178 passed** (GitHub Actions `main` green) |
+| Accessibility          | a11y project                      | ✅ **3 passed** (CI after E2E)          |
 | Bundle budget          | warn 45 MiB / fail 90 MiB `.next` | ⚠️ soft warn (admin ~47 MiB)            |
-| CodeQL                 | security-and-quality              | ⏳ runs on GitHub after push            |
-| Gitleaks               | no leaks                          | ⏳ runs on GitHub after push            |
+| CodeQL                 | security-and-quality              | ✅ success on `main`                    |
+| Gitleaks               | no leaks                          | ✅ filesystem scan in CI                |
 
 ---
 
@@ -85,7 +85,7 @@ Artifacts: uploaded as `*-coverage` from CI; locally under each package’s `cov
 
 | Control         | Implementation                                                                           |
 | --------------- | ---------------------------------------------------------------------------------------- |
-| Secret scanning | `scripts/secret-scan.js` + Gitleaks action + GitHub push protection (enable in settings) |
+| Secret scanning | `scripts/secret-scan.js` + Gitleaks filesystem scan + GitHub push protection (enable in settings) |
 | SAST            | CodeQL `javascript-typescript`                                                           |
 | SCA             | `npm run audit:deps` + Dependabot                                                        |
 | Runtime         | Helmet/CORS/throttling in API (existing); secrets via GCP SM / GitHub Environments       |
