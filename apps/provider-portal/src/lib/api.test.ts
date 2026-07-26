@@ -61,6 +61,9 @@ describe('provider api', () => {
     await providerApi.queue.confirmHold('hosp-1', 'h1');
     await providerApi.queue.declineHold('hosp-1', 'h1', 'full');
     await providerApi.queue.clinicalAck('hosp-1', 'h1', 'HOSPITAL_CLINICAL_LEAD');
+    await providerApi.users.invite('hosp-1', { name: 'A', email: 'a@b.c', role: 'HOSPITAL_ADMISSIONS_STAFF' });
+    await providerApi.config.get('hosp-1');
+    await providerApi.audit.list('hosp-1');
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
