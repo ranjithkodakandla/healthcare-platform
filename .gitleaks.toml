@@ -1,0 +1,17 @@
+title = "Sahayak gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Benign docs, examples, and generated reports"
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.e2e\.example$''',
+  '''\.env\.local\.example$''',
+  '''package-lock\.json$''',
+  '''Healthcare-.*\.md$''',
+  '''IMPLEMENTATION_MASTER_PLAN\.md$''',
+  '''PLAYWRIGHT_COVERAGE_REPORT\.md$''',
+  '''REQUIREMENTS_TRACEABILITY_MATRIX\.md$''',
+]

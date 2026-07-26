@@ -80,6 +80,8 @@ jobs:
       - working-directory: packages/shared-constants
         run: npm run build
       - working-directory: apps/api
+        run: npx prisma generate
+      - working-directory: apps/api
         run: npx prisma migrate deploy
       - working-directory: apps/api
         run: npm run lint -- --max-warnings 0
@@ -168,11 +170,13 @@ jobs:
         run: npm run analyze:static
       - name: Secret scan
         run: npm run secrets:scan
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        continue-on-error: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gitleaks (filesystem scan)
+        # Prefer --no-git: gitleaks-action commit-range scan breaks on root commits
+        # (parent^ missing) and shallow checkouts.
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | tar xz -C /tmp
+          /tmp/gitleaks detect --source . --no-git --redact -v --exit-code=1
 
   dependency-audit:
     name: Dependency audit (critical/high)
@@ -229,6 +233,8 @@ jobs:
       - run: npm ci
       - working-directory: packages/shared-constants
         run: npm run build
+      - working-directory: apps/api
+        run: npx prisma generate
       - working-directory: apps/api
         run: npx prisma migrate deploy
       - working-directory: apps/api
