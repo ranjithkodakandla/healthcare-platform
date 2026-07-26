@@ -1,0 +1,220 @@
+name: Deploy Cloud Run
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [development, staging, production]
+        default: development
+      services:
+        description: Comma-separated services (api,citizen,provider,admin or all)
+        required: true
+        default: all
+      image_tag:
+        description: Image tag (defaults to git sha)
+        required: false
+        default: ''
+      skip_quality:
+        description: Skip quality reusable workflow (emergency only)
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'development' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'sahyak' }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'asia-south1' }}
+  AR_REPO: ${{ vars.AR_REPO || 'sahayak-dev' }}
+
+jobs:
+  quality:
+    name: Pre-deploy quality gates
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_quality == true) }}
+    uses: ./.github/workflows/reusable-quality.yml
+    with:
+      run_e2e: true
+    secrets: inherit
+
+  resolve:
+    name: Resolve deploy targets
+    runs-on: ubuntu-latest
+    needs: [quality]
+    if: always() && (needs.quality.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.skip_quality == true))
+    outputs:
+      environment: ${{ steps.meta.outputs.environment }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      deploy_api: ${{ steps.meta.outputs.deploy_api }}
+      deploy_citizen: ${{ steps.meta.outputs.deploy_citizen }}
+      deploy_provider: ${{ steps.meta.outputs.deploy_provider }}
+      deploy_admin: ${{ steps.meta.outputs.deploy_admin }}
+    steps:
+      - id: meta
+        run: |
+          ENV="${{ github.event.inputs.environment || 'development' }}"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            ENV=production
+          fi
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [[ -z "$TAG" ]]; then
+            TAG="${GITHUB_SHA::12}"
+          fi
+          SVC="${{ github.event.inputs.services || 'all' }}"
+          api=false; cit=false; prov=false; adm=false
+          if [[ "$SVC" == "all" ]]; then
+            api=true; cit=true; prov=true; adm=true
+          else
+            [[ "$SVC" == *api* ]] && api=true
+            [[ "$SVC" == *citizen* ]] && cit=true
+            [[ "$SVC" == *provider* ]] && prov=true
+            [[ "$SVC" == *admin* ]] && adm=true
+          fi
+          {
+            echo "environment=$ENV"
+            echo "image_tag=$TAG"
+            echo "deploy_api=$api"
+            echo "deploy_citizen=$cit"
+            echo "deploy_provider=$prov"
+            echo "deploy_admin=$adm"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy-api:
+    name: Deploy API → Cloud Run
+    needs: [resolve]
+    if: needs.resolve.outputs.deploy_api == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+      - name: Build & push API image
+        env:
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/api:${{ needs.resolve.outputs.image_tag }}
+        run: |
+          docker build -f apps/api/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Deploy Cloud Run
+        env:
+          SERVICE: ${{ vars.CLOUD_RUN_API_SERVICE || 'sahayak-dev-api' }}
+        run: |
+          PREV=$(gcloud run services describe "$SERVICE" --region="$GCP_REGION" --format='value(status.latestReadyRevisionName)' || true)
+          echo "PREV_REVISION=$PREV" >> "$GITHUB_ENV"
+          gcloud run deploy "$SERVICE" \
+            --project="$GCP_PROJECT_ID" \
+            --region="$GCP_REGION" \
+            --image="$IMAGE" \
+            --platform=managed \
+            --quiet
+      - name: Smoke /health
+        env:
+          SERVICE: ${{ vars.CLOUD_RUN_API_SERVICE || 'sahayak-dev-api' }}
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region="$GCP_REGION" --format='value(status.url)')
+          curl -sf "$URL/health"
+      - name: Rollback hint
+        if: failure()
+        run: |
+          echo "::error::Deploy failed. Rollback: gcloud run services update-traffic ${{ vars.CLOUD_RUN_API_SERVICE || 'sahayak-dev-api' }} --to-revisions=${PREV_REVISION}=100 --region=${GCP_REGION}"
+
+  deploy-citizen:
+    name: Deploy Citizen → Cloud Run
+    needs: [resolve]
+    if: needs.resolve.outputs.deploy_citizen == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+      - name: Build push deploy
+        env:
+          APP: citizen-app
+          SERVICE: ${{ vars.CLOUD_RUN_CITIZEN_SERVICE || 'sahayak-dev-citizen' }}
+          TAG: ${{ needs.resolve.outputs.image_tag }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+        run: bash scripts/ci-deploy-web.sh
+
+  deploy-provider:
+    name: Deploy Provider → Cloud Run
+    needs: [resolve]
+    if: needs.resolve.outputs.deploy_provider == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+      - name: Build push deploy
+        env:
+          APP: provider-portal
+          SERVICE: ${{ vars.CLOUD_RUN_PROVIDER_SERVICE || 'sahayak-dev-provider' }}
+          TAG: ${{ needs.resolve.outputs.image_tag }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+        run: bash scripts/ci-deploy-web.sh
+
+  deploy-admin:
+    name: Deploy Admin → Cloud Run
+    needs: [resolve]
+    if: needs.resolve.outputs.deploy_admin == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+      - name: Build push deploy
+        env:
+          APP: admin-console
+          SERVICE: ${{ vars.CLOUD_RUN_ADMIN_SERVICE || 'sahayak-dev-admin' }}
+          TAG: ${{ needs.resolve.outputs.image_tag }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+        run: bash scripts/ci-deploy-web.sh

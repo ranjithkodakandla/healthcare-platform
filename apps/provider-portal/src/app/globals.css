@@ -1,0 +1,184 @@
+/* Google Fonts must precede Tailwind so PostCSS keeps @import order valid. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+:root {
+  --brand: #0B5C66;
+  --brand-dark: #04363D;
+  --brand-light: #DEF3F5;
+  --brand-lighter: #F3FBFC;
+  --surface-page: #F2F4F5;
+  --surface-card: #FFFFFF;
+  --text-primary: #1A1D1F;
+  --text-secondary: #4A5054;
+  --text-muted: #7C8388;
+  --border: #E7EBEC;
+  --border-strong: #C7CDD0;
+  --warning: #D98C0E;
+  --warning-text: #8A5A00;
+  --warning-bg: #FBF0D9;
+  --danger: #C62E2E;
+  --success: #1E9E5C;
+  /* Breakpoints (logical — mirrored in media queries below) */
+  --bp-mobile: 767px;
+  --bp-tablet: 1023px;
+  --bp-desktop: 1279px;
+  --bp-wide: 1536px;
+  --sidebar-width: 232px;
+}
+
+/* —— Responsive shell (UX Spec §9: drawer <1024) —— */
+.shell-sidebar-desktop {
+  display: none;
+}
+.shell-menu-btn {
+  display: inline-flex;
+}
+.shell-main-pad {
+  padding: 1rem;
+}
+.shell-content-max {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.shell-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+}
+.shell-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(26, 29, 31, 0.45);
+  cursor: pointer;
+  min-height: 100%;
+}
+.shell-drawer-panel {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: min(280px, 88vw);
+  background: #04363D;
+  overflow-y: auto;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+  animation: shell-drawer-in 160ms ease-out;
+}
+.shell-drawer-panel aside {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  position: static !important;
+}
+@keyframes shell-drawer-in {
+  from { transform: translateX(-12px); opacity: 0.85; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (min-width: 1024px) {
+  .shell-sidebar-desktop {
+    display: block;
+  }
+  .shell-menu-btn {
+    display: none !important;
+  }
+  .shell-main-pad {
+    padding: 1.75rem;
+  }
+}
+
+/* —— Layout primitives —— */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1280px) {
+  .stat-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.split-pane {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 1024px) {
+  .split-pane {
+    grid-template-columns: var(--split-cols, 1.2fr 1fr);
+  }
+}
+
+.data-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.ops-row-grid {
+  display: grid;
+  gap: 0.5rem 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .ops-row-grid {
+    grid-template-columns: var(--ops-cols, 1fr 1.6fr 1.3fr 1fr 1.5fr);
+    align-items: center;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+* {
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans', system-ui, sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+/* Systemic touch / click target floor (UX-015) */
+button,
+a.inline-flex,
+[role='button'] {
+  min-height: 44px;
+}
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  min-height: 44px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C7CDD0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

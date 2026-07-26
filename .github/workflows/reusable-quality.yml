@@ -1,0 +1,322 @@
+name: Reusable — Quality gates
+
+on:
+  workflow_call:
+    inputs:
+      run_e2e:
+        description: Run Playwright against deployed or local URLs
+        type: boolean
+        default: true
+      e2e_api_url:
+        type: string
+        required: false
+        default: https://sahayak-dev-api-j2iqu7nnqq-el.a.run.app
+      e2e_citizen_url:
+        type: string
+        required: false
+        default: https://sahayak-dev-citizen-j2iqu7nnqq-el.a.run.app
+      e2e_provider_url:
+        type: string
+        required: false
+        default: https://sahayak-dev-provider-j2iqu7nnqq-el.a.run.app
+      e2e_admin_url:
+        type: string
+        required: false
+        default: https://sahayak-dev-admin-j2iqu7nnqq-el.a.run.app
+
+jobs:
+  shared-constants-quality:
+    name: shared-constants — coverage ≥95%
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - working-directory: packages/shared-constants
+        run: npm run test:ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-constants-coverage
+          path: packages/shared-constants/coverage
+
+  api-quality:
+    name: API — lint · typecheck · test ≥90% · build · health
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sahayak
+          POSTGRES_PASSWORD: sahayak_dev
+          POSTGRES_DB: sahayak
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sahayak"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://sahayak:sahayak_dev@localhost:5432/sahayak?schema=public
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - working-directory: packages/shared-constants
+        run: npm run build
+      - working-directory: apps/api
+        run: npx prisma migrate deploy
+      - working-directory: apps/api
+        run: npm run lint -- --max-warnings 0
+      - working-directory: apps/api
+        run: npm run typecheck
+      - working-directory: apps/api
+        run: npm test -- --ci --coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+      - working-directory: apps/api
+        run: npm run build
+      - name: Boot app and check /health
+        working-directory: apps/api
+        run: |
+          node dist/main.js &
+          APP_PID=$!
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "health OK"
+              kill $APP_PID || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "health never became healthy"
+          kill $APP_PID || true
+          exit 1
+
+  frontend-quality:
+    name: Frontends — lint · unit ≥85% · build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [citizen-app, provider-portal, admin-console]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Lint ${{ matrix.app }}
+        working-directory: apps/${{ matrix.app }}
+        run: npm run lint -- --max-warnings 0
+      - name: Typecheck ${{ matrix.app }}
+        working-directory: apps/${{ matrix.app }}
+        run: npx tsc --noEmit
+      - name: Unit tests + coverage ${{ matrix.app }}
+        working-directory: apps/${{ matrix.app }}
+        run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-coverage
+          path: apps/${{ matrix.app }}/coverage
+      - name: Build ${{ matrix.app }}
+        working-directory: apps/${{ matrix.app }}
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://example.invalid
+          NEXT_PUBLIC_FIREBASE_API_KEY: build-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: sahyak.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: sahyak
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:0:web:0
+        run: npm run build
+      - name: Bundle size budget
+        run: node scripts/bundle-budget.js apps/${{ matrix.app }}
+
+  format-and-static:
+    name: Prettier · static analysis · secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Prettier check
+        run: npm run format:check
+      - name: Static analysis (ESLint workspaces)
+        run: npm run analyze:static
+      - name: Secret scan
+        run: npm run secrets:scan
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-audit:
+    name: Dependency audit (critical/high)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: mkdir -p reports && npm run audit:deps
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit
+          path: reports/npm-audit-prod.json
+          if-no-files-found: ignore
+
+  openapi-contract-gate:
+    runs-on: ubuntu-latest
+    needs: api-quality
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sahayak
+          POSTGRES_PASSWORD: sahayak_dev
+          POSTGRES_DB: sahayak
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sahayak"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://sahayak:sahayak_dev@localhost:5432/sahayak?schema=public
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - working-directory: packages/shared-constants
+        run: npm run build
+      - working-directory: apps/api
+        run: npx prisma migrate deploy
+      - working-directory: apps/api
+        run: npm run openapi:generate
+      - working-directory: apps/api
+        run: npm run openapi:validate
+
+  e2e-playwright:
+    name: Playwright E2E + a11y
+    if: ${{ inputs.run_e2e }}
+    runs-on: ubuntu-latest
+    needs: [api-quality, frontend-quality, shared-constants-quality]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - name: Run Playwright (citizen · provider · admin · platform)
+        env:
+          E2E_API_URL: ${{ inputs.e2e_api_url }}
+          E2E_CITIZEN_URL: ${{ inputs.e2e_citizen_url }}
+          E2E_PROVIDER_URL: ${{ inputs.e2e_provider_url }}
+          E2E_ADMIN_URL: ${{ inputs.e2e_admin_url }}
+        run: |
+          npx playwright test \
+            --project=citizen --project=provider --project=admin --project=platform \
+            --reporter=html,line
+      - name: Accessibility gate
+        env:
+          NEXT_PUBLIC_API_URL: ${{ inputs.e2e_api_url }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: build-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: sahyak.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: sahyak
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:0:web:0
+        run: npm run e2e:a11y
+      - name: Generate RTM / release readiness snapshot
+        if: always()
+        run: |
+          mkdir -p reports
+          npm run rtm:generate || true
+          node scripts/release-readiness-ci.js || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+            REQUIREMENTS_TRACEABILITY_MATRIX.md
+            PLAYWRIGHT_COVERAGE_REPORT.md
+            reports/release-readiness.json
+          retention-days: 14
+
+  quality-gate:
+    name: Quality gate summary
+    runs-on: ubuntu-latest
+    needs:
+      - shared-constants-quality
+      - api-quality
+      - frontend-quality
+      - format-and-static
+      - dependency-audit
+      - openapi-contract-gate
+      - e2e-playwright
+    if: always()
+    steps:
+      - name: Enforce all required jobs succeeded
+        run: |
+          echo "shared=${{ needs.shared-constants-quality.result }}"
+          echo "api=${{ needs.api-quality.result }}"
+          echo "fe=${{ needs.frontend-quality.result }}"
+          echo "fmt=${{ needs.format-and-static.result }}"
+          echo "audit=${{ needs.dependency-audit.result }}"
+          echo "openapi=${{ needs.openapi-contract-gate.result }}"
+          echo "e2e=${{ needs.e2e-playwright.result }}"
+          fail=0
+          for r in \
+            "${{ needs.shared-constants-quality.result }}" \
+            "${{ needs.api-quality.result }}" \
+            "${{ needs.frontend-quality.result }}" \
+            "${{ needs.format-and-static.result }}" \
+            "${{ needs.dependency-audit.result }}" \
+            "${{ needs.openapi-contract-gate.result }}"; do
+            if [ "$r" != "success" ]; then fail=1; fi
+          done
+          e2e="${{ needs.e2e-playwright.result }}"
+          if [ "$e2e" != "success" ] && [ "$e2e" != "skipped" ]; then fail=1; fi
+          exit $fail

@@ -1,0 +1,26 @@
+name: Reusable — Node setup
+
+on:
+  workflow_call:
+    outputs:
+      node-version:
+        description: Node version used
+        value: '20'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}

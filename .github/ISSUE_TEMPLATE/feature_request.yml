@@ -1,0 +1,54 @@
+name: Feature Request
+description: Propose a product or platform enhancement
+title: '[feat]: '
+labels: ['enhancement', 'triage']
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - API
+        - Citizen App
+        - Provider Portal
+        - Admin Console
+        - Infrastructure / CI
+        - Privacy / Compliance
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / opportunity
+      description: What user or operator pain does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: input
+    id: req
+    attributes:
+      label: Related REQ / FR / GT
+      description: e.g. REQ-028, FR-BED-001, GT-08
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Suggested priority
+      options:
+        - P0 — blocks Golden Hour / safety
+        - P1 — high
+        - P2 — medium
+        - P3 — nice to have

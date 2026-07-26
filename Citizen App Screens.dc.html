@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#F4F1EA; font-family:'Inter', sans-serif; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#D8D3C8; border-radius:4px; }
+</style>
+</helmet>
+
+<div style="display:flex; min-height:100vh; background:#F4F1EA; color:#1B2422;">
+
+  <!-- SIDEBAR NAV -->
+  <div style="width:296px; flex-shrink:0; background:#FFFFFF; border-right:1px solid #EAE5DC; height:100vh; position:sticky; top:0; overflow-y:auto; padding:20px 0 40px;">
+    <div style="padding:0 20px 16px; border-bottom:1px solid #EAE5DC; margin-bottom:8px;">
+      <div style="font-size:12px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:#0F766E;">India Healthcare Coordination Platform</div>
+      <div style="font-size:18px; font-weight:700; color:#1B2422; margin-top:4px;">Citizen Mobile App</div>
+      <div style="font-size:12px; color:#7A8884; margin-top:2px;">32 screens · C-01 – C-32</div>
+    </div>
+    <sc-for list="{{ navGroups }}" as="grp" hint-placeholder-count="8">
+      <div style="padding:14px 20px 6px;">
+        <div style="font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:#7A8884;">{{ grp.title }}</div>
+      </div>
+      <sc-for list="{{ grp.items }}" as="item" hint-placeholder-count="3">
+        <div onClick="{{ item.onClick }}" style="cursor:pointer; display:flex; align-items:center; gap:10px; margin:2px 10px; padding:8px 10px; border-radius:8px; background:{{ item.bg }}; min-height:40px;">
+          <div style="font-size:11px; font-weight:700; color:{{ item.idColor }}; width:34px; flex-shrink:0;">{{ item.id }}</div>
+          <div style="font-size:13px; font-weight:{{ item.weight }}; color:{{ item.textColor }}; line-height:1.3;">{{ item.label }}</div>
+        </div>
+      </sc-for>
+    </sc-for>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div style="flex:1; padding:40px; min-width:0;">
+    <div style="max-width:1180px; margin:0 auto;">
+
+      <div style="display:flex; align-items:baseline; gap:12px; margin-bottom:24px;">
+        <div style="font-size:28px; font-weight:700; color:#1B2422;">{{ currentTitle }}</div>
+        <div style="font-size:13px; font-weight:600; color:#0F766E; background:#E9F3F0; padding:3px 10px; border-radius:4px; white-space:nowrap; flex-shrink:0;">{{ currentId }}</div>
+        <div style="font-size:13px; color:#7A8884; white-space:nowrap; flex-shrink:0;">Ref: {{ currentRef }}</div>
+      </div>
+
+      <div style="display:flex; gap:32px; align-items:flex-start; flex-wrap:wrap;">
+
+        <!-- PHONE FRAME -->
+        <div style="width:360px; flex-shrink:0; background:#16211F; border-radius:40px; padding:10px; box-shadow:0 24px 48px rgba(26,29,31,0.18);">
+          <div style="width:340px; height:734px; background:#FFFFFF; border-radius:28px; overflow:hidden; position:relative; display:flex; flex-direction:column;">
+
+            <!-- status bar -->
+            <div style="height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:#FFFFFF; font-size:13px; font-weight:400; color:#171D1B; position:relative; font-family:Roboto, system-ui, sans-serif;">
+              <div>9:30</div>
+              <div style="position:absolute; left:50%; top:8px; transform:translateX(-50%); width:22px; height:22px; border-radius:100px; background:#2E2E2E;"></div>
+              <div style="display:flex; gap:4px; align-items:center;">
+                <div style="width:16px;height:10px;border:1.5px solid #171D1B;border-radius:2px;"></div>
+                <div style="width:14px;height:10px;border-radius:1px;background:#171D1B;"></div>
+              </div>
+            </div>
+
+            <!-- screen content area -->
+            <div style="flex:1; overflow-y:auto; position:relative; display:flex; flex-direction:column;">
+              <sc-if value="{{ isC01 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(#FBF8F3 0%, #E9F3F0 100%);padding:32px 28px;text-align:center;gap:22px;">
+                  <div style="width:88px;height:88px;border-radius:26px;background:#0F766E;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
+                    <div style="width:32px;height:32px;position:relative;">
+                      <div style="position:absolute;left:12px;top:0;width:8px;height:32px;background:#fff;border-radius:3px;"></div>
+                      <div style="position:absolute;left:0;top:12px;width:32px;height:8px;background:#fff;border-radius:3px;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:25px;font-weight:800;color:#1B2422;letter-spacing:-0.3px;">Life the Precious</div>
+                    <div style="font-size:14px;color:#5B6B68;margin-top:6px;font-weight:600;">India's Healthcare Coordination Platform</div>
+                    <div style="font-size:15px;color:#64726E;line-height:1.55;max-width:280px;margin:12px auto 0;">One Healthcare Case, coordinated end to end — ambulance, hospital, doctor and blood bank, moving together as one.</div>
+                  </div>
+                  <div style="width:100%;">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#7A8884;margin-bottom:10px;text-align:left;">Choose your language</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                      <div style="height:48px;border:1px solid #D8D3C8;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;background:#0F766E;color:#fff;">English</div>
+                      <div style="height:48px;border:1px solid #D8D3C8;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;">हिन्दी</div>
+                      <div style="height:48px;border:1px solid #D8D3C8;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;">বাংলা</div>
+                      <div style="height:48px;border:1px solid #D8D3C8;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;">தமிழ்</div>
+                      <div style="height:48px;border:1px solid #D8D3C8;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;">తెలుగు</div>
+                      <div style="height:48px;border:1px solid #D8D3C8;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;">मराठी</div>
+                    </div>
+                    <div style="font-size:13px;color:#0F766E;font-weight:600;margin-top:12px;">View all 10 languages ›</div>
+                  </div>
+                  <button style="margin-top:10px;width:280px;max-width:100%;height:56px;border:none;border-radius:16px;background:#0F766E;color:#fff;font-size:17px;font-weight:700;">Get Started</button>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC02 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:24px 24px 32px;">
+                  <div style="font-size:22px;font-weight:700;color:#1B2422;margin-top:12px;">Get help right now</div>
+                  <div style="font-size:14px;color:#5B6B68;line-height:1.5;margin-top:10px;">No account needed. You can request an ambulance immediately as a guest.</div>
+                  <div style="flex:1;"></div>
+                  <div style="font-size:12px;font-weight:600;color:#7A8884;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:8px;">Phone number (optional)</div>
+                  <div style="height:48px;border:1px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;padding:0 14px;font-size:15px;color:#7A8884;margin-bottom:16px;">+91 ​</div>
+                  <div style="height:56px;border-radius:999px;background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">Continue as Guest</div>
+                  <div style="text-align:center;font-size:13px;font-weight:600;color:#0F766E;margin-top:16px;">Register instead</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC03 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:24px;">
+                  <div style="font-size:20px;font-weight:700;color:#1B2422;margin-top:12px;">Enter the code</div>
+                  <div style="font-size:13px;color:#5B6B68;margin-top:8px;">Sent to +91 98•••••210</div>
+                  <div style="display:flex;gap:8px;margin-top:24px;">
+                    <div style="width:38px;height:48px;border:1.5px solid #0F766E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">4</div>
+                    <div style="width:38px;height:48px;border:1.5px solid #0F766E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">8</div>
+                    <div style="width:38px;height:48px;border:1.5px solid #0F766E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">2</div>
+                    <div style="width:38px;height:48px;border:1.5px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;"></div>
+                    <div style="width:38px;height:48px;border:1.5px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;"></div>
+                    <div style="width:38px;height:48px;border:1.5px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;"></div>
+                  </div>
+                  <div style="font-size:12px;color:#7A8884;margin-top:14px;">Resend code in 0:24</div>
+                  <div style="flex:1;"></div>
+                  <div style="height:56px;border-radius:999px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">Verify &amp; Continue</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC04 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 12px;display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-size:12px;color:#7A8884;">Good afternoon</div>
+                      <div style="font-size:18px;font-weight:700;color:#1B2422;">Ravi Kumar</div>
+                    </div>
+                    <div style="width:36px;height:36px;border-radius:999px;background:#E9F3F0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#0F766E;">RK</div>
+                  </div>
+                  <div style="margin:0 20px 14px;padding:10px 14px;background:#FBF8F3;border:1px solid #E9F3F0;border-radius:8px;display:flex;align-items:center;gap:8px;">
+                    <div style="width:8px;height:8px;border-radius:999px;background:#0F766E;flex-shrink:0;"></div>
+                    <div style="font-size:12px;color:#0F766E;font-weight:600;flex:1;">Need help now? Talk to a coordinator</div>
+                    <div style="font-size:14px;color:#0F766E;">›</div>
+                  </div>
+
+                  <div style="margin:0 20px 16px;padding:14px;border-radius:12px;background:#FBE3E3;border:1px solid #B3261E;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                      <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #B3261E;"></div>
+                      <div style="font-size:11px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#8C1D1D;">Critical · Ambulance en route</div>
+                    </div>
+                    <div style="font-size:13px;color:#1B2422;margin-bottom:6px;">Golden Hour elapsed</div>
+                    <div style="font-size:28px;font-weight:700;color:#8C1D1D;font-variant-numeric:tabular-nums;">00:12:45</div>
+                    <div style="font-size:12px;color:#5B6B68;margin-top:6px;">Tap for Case Dashboard ›</div>
+                  </div>
+
+                  <div style="margin:0 20px 20px;height:64px;border-radius:999px;background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:700;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17h.01"/></svg> Emergency
+                  </div>
+
+                  <div style="padding:0 20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;color:#7A8884;margin-bottom:10px;">Find help</div>
+                  <div style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex:1;">
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px 8px;text-align:center;"><div style="width:28px;height:28px;border-radius:6px;background:#E9F3F0;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="10" width="20" height="8" rx="2"/><rect x="4" y="7" width="6" height="4" rx="1"/><path d="M2 18v2M22 18v2"/></svg></div><div style="font-size:11px;font-weight:600;">Beds</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px 8px;text-align:center;"><div style="width:28px;height:28px;border-radius:999px;background:#E9F3F0;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v5a4 4 0 008 0V3"/><path d="M12 12v2a5 5 0 01-10 0v-1" transform="translate(2,0)"/><circle cx="19" cy="16" r="3"/></svg></div><div style="font-size:11px;font-weight:600;">Doctors</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px 8px;text-align:center;"><div style="width:28px;height:28px;border-radius:6px;background:#E9F3F0;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(-25 12 12)"><rect x="4" y="9" width="16" height="6" rx="3"/><line x1="12" y1="9" x2="12" y2="15"/></g></svg></div><div style="font-size:11px;font-weight:600;">Pharmacy</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px 8px;text-align:center;"><div style="width:28px;height:28px;border-radius:999px;background:#FBE3E3;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s7 8 7 13a7 7 0 01-14 0c0-5 7-13 7-13z"/></svg></div><div style="font-size:11px;font-weight:600;">Blood</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px 8px;text-align:center;"><div style="width:28px;height:28px;border-radius:6px;background:#E9F3F0;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v11a2 2 0 004 0V3"/><path d="M10 13h4"/></svg></div><div style="font-size:11px;font-weight:600;">Diagnostics</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px 8px;text-align:center;"><div style="width:28px;height:28px;border-radius:6px;background:#E9F3F0;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div><div style="font-size:11px;font-weight:600;">Nearby Hospitals</div></div>
+                  </div>
+
+                  <div style="height:64px;flex-shrink:0;border-top:1px solid #EAE5DC;display:flex;align-items:center;justify-content:space-around;">
+                    <div style="text-align:center;"><div style="margin:0 auto 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div style="font-size:10px;font-weight:600;color:#0F766E;">Home</div></div>
+                    <div style="text-align:center;"><div style="margin:0 auto 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A8884" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v2H9z"/><path d="M9.5 13.5s2.5-1.7 2.5-3.3a1.6 1.6 0 00-2.5-1.3A1.6 1.6 0 007 10.2c0 1.6 2.5 3.3 2.5 3.3z"/></svg></div><div style="font-size:10px;color:#7A8884;">Cases</div></div>
+                    <div style="text-align:center;"><div style="margin:0 auto 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A8884" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><path d="M15 15l5 5"/></svg></div><div style="font-size:10px;color:#7A8884;">Search</div></div>
+                    <div style="text-align:center;"><div style="margin:0 auto 3px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A8884" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div><div style="font-size:10px;color:#7A8884;">Profile</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC05 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px 22px 28px;background:#fff;">
+                  <div style="display:flex;gap:6px;margin-bottom:20px;">
+                    <div style="flex:1;height:4px;border-radius:2px;background:#0F766E;"></div>
+                    <div style="flex:1;height:4px;border-radius:2px;background:#EAE5DC;"></div>
+                    <div style="flex:1;height:4px;border-radius:2px;background:#EAE5DC;"></div>
+                  </div>
+                  <div style="font-size:12px;font-weight:600;color:#0F766E;margin-bottom:6px;">📍 Location confirmed — MG Road, Bengaluru</div>
+                  <div style="font-size:22px;font-weight:700;color:#1B2422;line-height:1.3;margin:14px 0 28px;">Is the person conscious?</div>
+                  <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div style="height:64px;border:1.5px solid #0F766E;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#0F766E;">Yes</div>
+                    <div style="height:64px;border:1.5px solid #D8D3C8;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#1B2422;">No</div>
+                    <div style="height:64px;border:1.5px solid #D8D3C8;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#7A8884;">Not sure</div>
+                  </div>
+                  <div style="flex:1;"></div>
+                  <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#7A8884;font-size:13px;">
+                    <div style="width:36px;height:36px;border-radius:999px;background:#E9F3F0;display:flex;align-items:center;justify-content:center;color:#0F766E;">🎤</div>
+                    Tap to answer by voice
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC06 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;background:#1B2422;color:#fff;text-align:center;gap:20px;">
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;background:rgba(179,38,30,0.25);">
+                    <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #ff6b5e;"></div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:#ff9a90;">Critical</div>
+                  </div>
+                  <div style="width:96px;height:96px;border-radius:999px;border:3px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;position:relative;">
+                    <div style="width:64px;height:64px;border-radius:999px;background:rgba(20,144,160,0.5);display:flex;align-items:center;justify-content:center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="14" height="8" rx="1"/><path d="M16 12h4l2 3v2h-6z"/><circle cx="7" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/><path d="M7 11v4M5 13h4"/></svg></div>
+                  </div>
+                  <div style="font-size:18px;font-weight:700;">Searching for nearest ambulance…</div>
+                  <div style="font-size:13px;color:#B7D9DD;">Expanding search radius: 3km → 6km</div>
+                  <div style="font-size:13px;color:#8FC6BE;font-variant-numeric:tabular-nums;">00:47 elapsed</div>
+                  <div style="font-size:12px;color:#9fb9bc;margin-top:12px;">Still searching? <span style="color:#fff;font-weight:600;text-decoration:underline;">Talk to a coordinator</span></div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC07 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="flex:1;position:relative;background:repeating-linear-gradient(135deg,#E9F3F0,#E9F3F0 10px,#FBF8F3 10px,#FBF8F3 20px);display:flex;align-items:center;justify-content:center;">
+                    <div style="font-family:monospace;font-size:11px;color:#0F766E;background:#fff;padding:4px 8px;border-radius:4px;">map view — live route</div>
+                    <div style="position:absolute;top:16px;left:16px;right:16px;background:#fff;border-radius:10px;box-shadow:0 4px 12px rgba(26,29,31,0.08);padding:12px 14px;">
+                      <div style="font-size:22px;font-weight:700;color:#1B2422;font-variant-numeric:tabular-nums;">8 min</div>
+                      <div style="font-size:12px;color:#5B6B68;">Ambulance is on the way to you</div>
+                    </div>
+                  </div>
+                  <div style="padding:16px 20px;border-top:1px solid #EAE5DC;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                      <div style="width:44px;height:44px;border-radius:999px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+                      <div style="flex:1;">
+                        <div style="font-size:14px;font-weight:700;color:#1B2422;">Suresh M. · KA-01 AB 4521</div>
+                        <div style="font-size:12px;color:#5B6B68;">Basic Life Support ambulance</div>
+                      </div>
+                      <div style="width:40px;height:40px;border-radius:999px;background:#E9F3F0;display:flex;align-items:center;justify-content:center;">📞</div>
+                    </div>
+                    <div style="height:48px;border-radius:8px;border:1px solid #C62E2E;color:#C62E2E;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;">Cancel request</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC08 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:18px;">
+                  <div style="width:80px;height:80px;border-radius:999px;background:#DFF5E9;display:flex;align-items:center;justify-content:center;">
+                    <div style="font-size:32px;color:#1E9E5C;">✓</div>
+                  </div>
+                  <div style="font-size:20px;font-weight:700;color:#1B2422;">Ambulance has arrived</div>
+                  <div style="font-size:13px;color:#5B6B68;line-height:1.5;">Confirm arrival so we can move to securing your hospital bed.</div>
+                  <div style="width:100%;height:56px;border-radius:999px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;margin-top:12px;">Confirm Arrival</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC09 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:18px 20px;background:#8C1D1D;color:#fff;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #fff;"></div>
+                      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;">Critical</div>
+                    </div>
+                    <div style="font-size:12px;opacity:0.85;">Golden Hour elapsed</div>
+                    <div style="font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;">00:18:32</div>
+                  </div>
+                  <div style="margin:16px 20px;padding:14px;border-radius:12px;background:#E9F3F0;border:1px solid #8FC6BE;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:#0F766E;margin-bottom:6px;">Next action needed</div>
+                    <div style="font-size:14px;font-weight:600;color:#1B2422;margin-bottom:10px;">Bed hold pending confirmation at Apollo Hospital, Bannerghatta Road</div>
+                    <div style="height:40px;border-radius:8px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">View hold status</div>
+                  </div>
+                  <div style="padding:0 20px;font-size:11px;font-weight:600;color:#7A8884;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:8px;">Linked services</div>
+                  <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;">
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;">
+                      <div style="width:32px;height:32px;border-radius:8px;background:#DFF5E9;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E6B3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="14" height="8" rx="1"/><path d="M16 12h4l2 3v2h-6z"/><circle cx="7" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/><path d="M7 11v4M5 13h4"/></svg></div>
+                      <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Ambulance</div><div style="font-size:11px;color:#7A8884;">Trip completed · 12:41 PM</div></div>
+                      <div style="font-size:11px;font-weight:700;color:#0E6B3A;background:#DFF5E9;padding:3px 8px;border-radius:4px;">Done</div>
+                    </div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;">
+                      <div style="width:32px;height:32px;border-radius:8px;background:#FBF0D9;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="10" width="20" height="8" rx="2"/><rect x="4" y="7" width="6" height="4" rx="1"/><path d="M2 18v2M22 18v2"/></svg></div>
+                      <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Bed — Apollo Hospital</div><div style="font-size:11px;color:#7A8884;">ICU · pending clinical ack</div></div>
+                      <div style="font-size:11px;font-weight:700;color:#8A5A00;background:#FBF0D9;padding:3px 8px;border-radius:4px;">Pending</div>
+                    </div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;opacity:0.6;">
+                      <div style="width:32px;height:32px;border-radius:8px;background:#EAE5DC;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7A8884" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+                      <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Insurance pre-auth</div><div style="font-size:11px;color:#7A8884;">Last verified 6m ago — retrying</div></div>
+                      <div style="font-size:11px;font-weight:700;color:#7A8884;">Stale</div>
+                    </div>
+                  </div>
+                  <div style="margin:14px 20px 18px;height:48px;border-radius:8px;border:1px solid #D8D3C8;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:600;color:#1B2422;">🎧 Talk to a coordinator</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC10 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px;border-bottom:1px solid #EAE5DC;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="font-size:17px;font-weight:700;color:#1B2422;">‹ Case Timeline</div>
+                    <div style="font-size:12px;font-weight:600;color:#0F766E;">Share</div>
+                  </div>
+                  <div style="display:flex;gap:8px;padding:12px 20px;overflow-x:auto;">
+                    <div style="padding:5px 12px;border-radius:999px;background:#0F766E;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;">All</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">Ambulance</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">Bed</div>
+                  </div>
+                  <div style="flex:1;overflow-y:auto;padding:4px 20px 20px;position:relative;">
+                    <div style="position:absolute;left:25px;top:8px;bottom:20px;width:2px;background:#EAE5DC;"></div>
+                    <div style="display:flex;gap:12px;padding:10px 0;position:relative;">
+                      <div style="width:10px;height:10px;border-radius:999px;background:#0E6B3A;margin-top:4px;z-index:1;"></div>
+                      <div><div style="font-size:11px;color:#7A8884;">12:41 PM</div><div style="font-size:13px;color:#1B2422;">Ambulance arrival confirmed at pickup location</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;padding:10px 0;position:relative;">
+                      <div style="width:10px;height:10px;border-radius:999px;background:#0F766E;margin-top:4px;z-index:1;"></div>
+                      <div><div style="font-size:11px;color:#7A8884;">12:22 PM</div><div style="font-size:13px;color:#1B2422;">Ambulance dispatched — Suresh M., KA-01 AB 4521</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;padding:10px 0;position:relative;">
+                      <div style="width:10px;height:10px;border-radius:999px;background:#D98C0E;margin-top:4px;z-index:1;"></div>
+                      <div><div style="font-size:11px;color:#7A8884;">12:14 PM</div><div style="font-size:13px;color:#1B2422;">Bed hold placed — Apollo Hospital, ICU</div></div>
+                    </div>
+                    <div style="display:flex;gap:12px;padding:10px 0;position:relative;">
+                      <div style="width:10px;height:10px;border-radius:999px;background:#B3261E;margin-top:4px;z-index:1;"></div>
+                      <div><div style="font-size:11px;color:#7A8884;">12:11 PM</div><div style="font-size:13px;color:#1B2422;">Case created — Critical severity ambulance request</div></div>
+                    </div>
+                    <div style="text-align:center;font-size:12px;color:#7A8884;padding:10px 0;">Loading earlier events…</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC11 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:16px;">
+                  <div style="width:76px;height:76px;border-radius:999px;background:#E9F3F0;display:flex;align-items:center;justify-content:center;font-size:28px;">🎧</div>
+                  <div style="font-size:18px;font-weight:700;color:#1B2422;">Connecting you to a coordinator…</div>
+                  <div style="font-size:13px;color:#5B6B68;">Position in queue: 2 · est. wait 40s</div>
+                  <div style="width:100%;border:1px solid #EAE5DC;border-radius:10px;padding:12px;text-align:left;margin-top:8px;">
+                    <div style="font-size:11px;font-weight:600;color:#7A8884;text-transform:uppercase;margin-bottom:4px;">Case context attached</div>
+                    <div style="font-size:13px;color:#1B2422;">Critical · Ambulance en route · Bed hold pending, Apollo Hospital</div>
+                  </div>
+                  <div style="font-size:13px;color:#7A8884;margin-top:8px;">Cancel</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC12 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Bed Search</div>
+                  <div style="padding:0 20px 10px;"><div style="height:44px;border:1px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#7A8884;">Search hospitals near you</div></div>
+                  <div style="display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;">
+                    <div style="padding:5px 12px;border-radius:999px;background:#0F766E;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;">ICU</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">General</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">&lt; 5km</div>
+                  </div>
+                  <div style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;">
+                      <div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div>
+                      <div style="flex:1;min-width:0;">
+                      <div style="display:flex;justify-content:space-between;"><div style="font-size:14px;font-weight:700;">Apollo Hospital</div><div style="font-size:11px;font-weight:700;color:#0E6B3A;background:#DFF5E9;padding:3px 8px;border-radius:4px;">3 ICU avail.</div></div>
+                      <div style="font-size:12px;color:#5B6B68;margin:4px 0;">Bannerghatta Road · 2.4 km · 82% occupancy</div>
+                      <div style="font-size:11px;color:#D98C0E;display:flex;align-items:center;gap:4px;">🕐 Last verified 4m ago</div>
+                      </div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;">
+                      <div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div>
+                      <div style="flex:1;min-width:0;">
+                      <div style="display:flex;justify-content:space-between;"><div style="font-size:14px;font-weight:700;">Fortis Hospital</div><div style="font-size:11px;font-weight:700;color:#8A5A00;background:#FBF0D9;padding:3px 8px;border-radius:4px;">1 ICU avail.</div></div>
+                      <div style="font-size:12px;color:#5B6B68;margin:4px 0;">Bommasandra · 5.1 km · 91% occupancy</div>
+                      <div style="font-size:11px;color:#7A8884;">🕐 Last verified 1m ago</div>
+                      </div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;opacity:0.55;display:flex;gap:10px;">
+                      <div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div>
+                      <div style="flex:1;min-width:0;">
+                      <div style="display:flex;justify-content:space-between;"><div style="font-size:14px;font-weight:700;">Narayana Health</div><div style="font-size:11px;font-weight:700;color:#8C1D1D;background:#FBE3E3;padding:3px 8px;border-radius:4px;">Full</div></div>
+                      <div style="font-size:12px;color:#5B6B68;margin:4px 0;">Hosur Road · 6.8 km</div>
+                      </div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC13 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="height:120px;background:repeating-linear-gradient(135deg,#E9F3F0,#E9F3F0 10px,#FBF8F3 10px,#FBF8F3 20px);flex-shrink:0;"></div>
+                  <div style="padding:16px 20px;flex:1;overflow-y:auto;">
+                    <div style="font-size:18px;font-weight:700;color:#1B2422;">Apollo Hospital</div>
+                    <div style="font-size:12px;color:#5B6B68;margin:4px 0 12px;">Bannerghatta Road, Bengaluru · 2.4 km</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#7A8884;margin-bottom:8px;">Select bed category</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                      <div style="border:1.5px solid #0F766E;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:13px;font-weight:600;">ICU</div><div style="font-size:12px;font-weight:700;color:#8A5A00;">3 available · requires ack</div></div>
+                      <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:13px;font-weight:600;">General</div><div style="font-size:12px;font-weight:700;color:#0E6B3A;">12 available</div></div>
+                    </div>
+                  </div>
+                  <div style="padding:16px 20px;border-top:1px solid #EAE5DC;">
+                    <div style="height:52px;border-radius:999px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">Place Hold — ICU Bed</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC14 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:14px;">
+                  <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#8A5A00;background:#FBF0D9;padding:5px 12px;border-radius:4px;">Pending clinical acknowledgment</div>
+                  <div style="font-size:40px;font-weight:700;color:#8A5A00;font-variant-numeric:tabular-nums;">04:12</div>
+                  <div style="font-size:13px;color:#5B6B68;">Apollo Hospital is confirming ICU bed availability with their Clinical Lead</div>
+                  <div style="width:100%;height:1px;background:#EAE5DC;margin:8px 0;"></div>
+                  <div style="font-size:12px;color:#7A8884;">If not confirmed in time, we'll automatically search nearby alternatives.</div>
+                  <div style="font-size:13px;font-weight:600;color:#0F766E;margin-top:8px;">Back to Case Dashboard</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC15 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Doctor Search</div>
+                  <div style="padding:0 20px 10px;"><div style="height:44px;border:1px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#7A8884;">Search by specialty</div></div>
+                  <div style="display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;">
+                    <div style="padding:5px 12px;border-radius:999px;background:#0F766E;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;">Cardiology</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">General Physician</div>
+                  </div>
+                  <div style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;">
+                      <div style="width:44px;height:44px;border-radius:999px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v5a4 4 0 008 0V3"/><path d="M12 12v2a5 5 0 01-10 0v-1" transform="translate(2,0)"/><circle cx="19" cy="16" r="3"/></svg></div>
+                      <div style="flex:1;"><div style="font-size:14px;font-weight:700;">Dr. Anjali Rao</div><div style="font-size:12px;color:#5B6B68;">Cardiologist · Apollo Hospital</div><div style="font-size:11px;color:#0E6B3A;font-weight:600;margin-top:2px;">Next slot: Today, 4:30 PM</div></div>
+                    </div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;">
+                      <div style="width:44px;height:44px;border-radius:999px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v5a4 4 0 008 0V3"/><path d="M12 12v2a5 5 0 01-10 0v-1" transform="translate(2,0)"/><circle cx="19" cy="16" r="3"/></svg></div>
+                      <div style="flex:1;"><div style="font-size:14px;font-weight:700;">Dr. Vikram Shah</div><div style="font-size:12px;color:#5B6B68;">Cardiologist · Fortis Hospital</div><div style="font-size:11px;color:#0E6B3A;font-weight:600;margin-top:2px;">Next slot: Tomorrow, 10:00 AM</div></div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC16 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+                  <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+                    <div style="width:56px;height:56px;border-radius:999px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v5a4 4 0 008 0V3"/><path d="M12 12v2a5 5 0 01-10 0v-1" transform="translate(2,0)"/><circle cx="19" cy="16" r="3"/></svg></div>
+                    <div><div style="font-size:16px;font-weight:700;">Dr. Anjali Rao</div><div style="font-size:12px;color:#5B6B68;">Cardiologist · 14 yrs experience</div></div>
+                  </div>
+                  <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#7A8884;margin-bottom:8px;">Available slots — Today</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+                    <div style="padding:8px 14px;border:1.5px solid #0F766E;border-radius:8px;font-size:13px;font-weight:600;color:#0F766E;">4:30 PM</div>
+                    <div style="padding:8px 14px;border:1px solid #D8D3C8;border-radius:8px;font-size:13px;font-weight:600;">5:00 PM</div>
+                    <div style="padding:8px 14px;border:1px solid #D8D3C8;border-radius:8px;font-size:13px;font-weight:600;">5:30 PM</div>
+                  </div>
+                  <div style="flex:1;"></div>
+                  <div style="height:52px;border-radius:999px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">Confirm Booking — 4:30 PM</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC17 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;background:#1B2422;color:#fff;">
+                  <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+                    <div style="width:120px;height:120px;border-radius:999px;background:#5B6B68;display:flex;align-items:center;justify-content:center;"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#EAE5DC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+                  </div>
+                  <div style="text-align:center;font-size:13px;color:#D8D3C8;margin-bottom:16px;">Dr. Anjali Rao · 04:12</div>
+                  <div style="display:flex;justify-content:center;gap:16px;padding-bottom:28px;">
+                    <div style="width:52px;height:52px;border-radius:999px;background:#5B6B68;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="10" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v3"/></svg></div>
+                    <div style="width:52px;height:52px;border-radius:999px;background:#C62E2E;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2C9.5 21 3 14.5 3 6a2 2 0 012-2z"/></svg></div>
+                    <div style="width:52px;height:52px;border-radius:999px;background:#5B6B68;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 10l5-2v8l-5-2z"/></svg></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC18 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Nearby Hospitals</div>
+                  <div style="flex:1;overflow-y:auto;padding:6px 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">Apollo Hospital</div><div style="font-size:12px;color:#5B6B68;">2.4 km · Multi-specialty</div></div><div style="font-size:12px;font-weight:700;color:#0E6B3A;">82%</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">Fortis Hospital</div><div style="font-size:12px;color:#5B6B68;">5.1 km · Multi-specialty</div></div><div style="font-size:12px;font-weight:700;color:#D98C0E;">91%</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">St. John's Hospital</div><div style="font-size:12px;color:#5B6B68;">6.0 km · General</div></div><div style="font-size:12px;font-weight:700;color:#0E6B3A;">64%</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC19 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="height:120px;background:repeating-linear-gradient(135deg,#E9F3F0,#E9F3F0 10px,#FBF8F3 10px,#FBF8F3 20px);flex-shrink:0;"></div>
+                  <div style="padding:16px 20px;flex:1;overflow-y:auto;">
+                    <div style="font-size:18px;font-weight:700;color:#1B2422;">Apollo Hospital</div>
+                    <div style="font-size:12px;color:#5B6B68;margin:4px 0 14px;">Bannerghatta Road, Bengaluru</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#7A8884;margin-bottom:8px;">Services</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+                      <div style="padding:5px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">Cardiology</div>
+                      <div style="padding:5px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">ICU</div>
+                      <div style="padding:5px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">Trauma Center</div>
+                      <div style="padding:5px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">Diagnostics</div>
+                    </div>
+                  </div>
+                  <div style="padding:16px 20px;border-top:1px solid #EAE5DC;"><div style="height:48px;border-radius:8px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">Get Directions</div></div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC20 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Pharmacy Search</div>
+                  <div style="padding:0 20px 12px;"><div style="height:44px;border:1px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#7A8884;">Search medicine — e.g. Insulin</div></div>
+                  <div style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;align-items:center;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(-25 12 12)"><rect x="4" y="9" width="16" height="6" rx="3"/><line x1="12" y1="9" x2="12" y2="15"/></g></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">MedPlus — Koramangala</div><div style="font-size:12px;color:#5B6B68;">1.2 km</div></div><div style="font-size:11px;font-weight:700;color:#0E6B3A;background:#DFF5E9;padding:3px 8px;border-radius:4px;">In stock</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;align-items:center;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(-25 12 12)"><rect x="4" y="9" width="16" height="6" rx="3"/><line x1="12" y1="9" x2="12" y2="15"/></g></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">Apollo Pharmacy</div><div style="font-size:12px;color:#5B6B68;">2.0 km</div></div><div style="font-size:11px;font-weight:700;color:#8A5A00;background:#FBF0D9;padding:3px 8px;border-radius:4px;">Low stock</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC21 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:24px;align-items:center;text-align:center;gap:14px;justify-content:center;">
+                  <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#8A5A00;background:#FBF0D9;padding:5px 12px;border-radius:4px;">Hold placed · MedPlus Koramangala</div>
+                  <div style="font-size:34px;font-weight:700;color:#8A5A00;font-variant-numeric:tabular-nums;">28:41</div>
+                  <div style="font-size:13px;color:#5B6B68;">Insulin (10ml) reserved — pick up before hold expires</div>
+                  <div style="width:100%;height:1px;background:#EAE5DC;margin:6px 0;"></div>
+                  <div style="font-size:12px;font-weight:700;color:#0E6B3A;">✓ Ready for pickup</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC22 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Blood Bank Search</div>
+                  <div style="display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;">
+                    <div style="padding:5px 12px;border-radius:999px;background:#0F766E;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;">O+</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">A+</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">B+</div>
+                  </div>
+                  <div style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;align-items:center;"><div style="width:32px;height:32px;border-radius:8px;background:#FBE3E3;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0E6B3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s7 8 7 13a7 7 0 01-14 0c0-5 7-13 7-13z"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">Red Cross Blood Bank</div><div style="font-size:12px;color:#5B6B68;">3.1 km</div></div><div style="font-size:11px;font-weight:700;color:#0E6B3A;background:#DFF5E9;padding:3px 8px;border-radius:4px;">O+ available</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;align-items:center;"><div style="width:32px;height:32px;border-radius:8px;background:#FBE3E3;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8C1D1D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s7 8 7 13a7 7 0 01-14 0c0-5 7-13 7-13z"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">City Blood Bank</div><div style="font-size:12px;color:#5B6B68;">4.7 km</div></div><div style="font-size:11px;font-weight:700;color:#8C1D1D;background:#FBE3E3;padding:3px 8px;border-radius:4px;">Out of stock</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC23 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:24px;align-items:center;text-align:center;gap:14px;justify-content:center;">
+                  <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#0F766E;background:#E9F3F0;padding:5px 12px;border-radius:4px;">Searching donor &amp; inventory match</div>
+                  <div style="width:64px;height:64px;border-radius:999px;background:#FBE3E3;display:flex;align-items:center;justify-content:center;font-size:24px;">🩸</div>
+                  <div style="font-size:14px;font-weight:600;">O+ · 2 units requested</div>
+                  <div style="font-size:12px;color:#5B6B68;">1 donor matched nearby · Red Cross Blood Bank confirming inventory</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC24 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+                  <div style="font-size:17px;font-weight:700;color:#1B2422;margin-bottom:16px;">‹ Insurance / Pre-Auth</div>
+                  <div style="border:1px solid #EAE5DC;border-radius:12px;padding:14px;margin-bottom:14px;display:flex;gap:10px;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><div style="flex:1;">
+                    <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Star Health Insurance</div>
+                    <div style="font-size:12px;color:#5B6B68;">Policy ending 4821 · Apollo Hospital, Cashless</div>
+                  </div></div>
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;"><div style="width:22px;height:22px;border-radius:999px;background:#1E9E5C;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;">✓</div><div style="font-size:13px;font-weight:600;">Submitted</div></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><div style="width:22px;height:22px;border-radius:999px;background:#D98C0E;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;">2</div><div style="font-size:13px;font-weight:600;">Under review by insurer</div></div>
+                    <div style="display:flex;align-items:center;gap:10px;opacity:0.4;"><div style="width:22px;height:22px;border-radius:999px;background:#D8D3C8;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;">3</div><div style="font-size:13px;font-weight:600;">Approved</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC25 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Diagnostic Tests</div>
+                  <div style="padding:0 20px 12px;"><div style="height:44px;border:1px solid #D8D3C8;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#7A8884;">Search test — e.g. MRI, CBC</div></div>
+                  <div style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v11a2 2 0 004 0V3"/><path d="M10 13h4"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">MRI Brain — Apollo Diagnostics</div><div style="font-size:12px;color:#5B6B68;margin:4px 0;">2.4 km · ₹4,500</div><div style="font-size:12px;font-weight:600;color:#0F766E;">Next slot: Today, 6:00 PM</div></div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;"><div style="width:32px;height:32px;border-radius:8px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v11a2 2 0 004 0V3"/><path d="M10 13h4"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">MRI Brain — Metropolis</div><div style="font-size:12px;color:#5B6B68;margin:4px 0;">3.8 km · ₹4,200</div><div style="font-size:12px;font-weight:600;color:#0F766E;">Next slot: Tomorrow, 9:00 AM</div></div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC26 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+                  <div style="font-size:17px;font-weight:700;color:#1B2422;margin-bottom:16px;">‹ Diagnostic Result</div>
+                  <div style="border:1px solid #EAE5DC;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:14px;font-weight:700;">MRI Brain</div><div style="font-size:11px;font-weight:700;color:#0E6B3A;background:#DFF5E9;padding:3px 8px;border-radius:4px;">Ready</div></div>
+                    <div style="font-size:12px;color:#5B6B68;">Apollo Diagnostics · Reported 18 Jul, 2026</div>
+                  </div>
+                  <div style="flex:1;"></div>
+                  <div style="height:52px;border-radius:999px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">Download Report (PDF)</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC27 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:16px 20px 10px;font-size:17px;font-weight:700;color:#1B2422;">‹ Cancer Hospitals</div>
+                  <div style="display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;">
+                    <div style="padding:5px 12px;border-radius:999px;background:#0F766E;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;">Radiation</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">Chemotherapy</div>
+                    <div style="padding:5px 12px;border-radius:999px;border:1px solid #D8D3C8;font-size:12px;font-weight:600;white-space:nowrap;">Surgical Oncology</div>
+                  </div>
+                  <div style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;">
+                      <div style="width:36px;height:36px;border-radius:999px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div>
+                      <div><div style="font-size:14px;font-weight:700;">HCG Cancer Centre</div><div style="font-size:12px;color:#5B6B68;">4.5 km · Radiation, Chemotherapy</div></div>
+                    </div>
+                    <div style="border:1px solid #EAE5DC;border-radius:12px;padding:12px;display:flex;gap:10px;">
+                      <div style="width:36px;height:36px;border-radius:999px;background:#E9F3F0;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M12 9v6M9 12h6"/></svg></div>
+                      <div><div style="font-size:14px;font-weight:700;">Kidwai Memorial Institute</div><div style="font-size:12px;color:#5B6B68;">7.2 km · Surgical Oncology</div></div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC28 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="padding:18px 20px;background:#3E7C8A;color:#fff;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;opacity:0.85;">Chronic management · Ongoing</div>
+                    <div style="font-size:16px;font-weight:700;margin-top:4px;">Type 2 Diabetes Management</div>
+                  </div>
+                  <div style="padding:14px 20px;">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#7A8884;margin-bottom:10px;">Care stage</div>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                      <div style="flex:1;height:6px;border-radius:3px;background:#1E9E5C;"></div>
+                      <div style="flex:1;height:6px;border-radius:3px;background:#1E9E5C;"></div>
+                      <div style="flex:1;height:6px;border-radius:3px;background:#3E7C8A;"></div>
+                      <div style="flex:1;height:6px;border-radius:3px;background:#EAE5DC;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:#7A8884;margin-top:4px;"><div>Intake</div><div>Treatment</div><div style="color:#3E7C8A;font-weight:700;">Surveillance</div><div>Next review</div></div>
+                  </div>
+                  <div style="padding:0 20px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;"><div style="font-size:13px;font-weight:700;">Quarterly HbA1c review</div><div style="font-size:12px;color:#5B6B68;">Due in 12 days · Diagnostic booking available</div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;"><div style="font-size:13px;font-weight:700;">Endocrinologist follow-up</div><div style="font-size:12px;color:#5B6B68;">Last visit: 3 weeks ago</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC29 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                    <div style="width:56px;height:56px;border-radius:999px;background:#E9F3F0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#0F766E;">RK</div>
+                    <div><div style="font-size:16px;font-weight:700;">Ravi Kumar</div><div style="font-size:12px;color:#5B6B68;">+91 98••••210</div></div>
+                  </div>
+                  <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:13px;font-weight:600;">ABHA ID linked</div><div style="font-size:11px;font-weight:700;color:#0E6B3A;">✓ Connected</div></div>
+                  <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#7A8884;margin-bottom:8px;">Family &amp; caregivers</div>
+                  <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:13px;font-weight:600;">Meena Kumar (mother)</div><div style="font-size:11px;color:#7A8884;">Full access</div></div>
+                  </div>
+                  <div style="margin-top:10px;font-size:13px;font-weight:600;color:#0F766E;">+ Add family member</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC30 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+                  <div style="font-size:17px;font-weight:700;color:#1B2422;margin-bottom:16px;">‹ Consent Management</div>
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:13px;font-weight:600;">Share Case data with Meena Kumar</div><div style="font-size:11px;color:#7A8884;">Granted 3 months ago</div></div><div style="width:38px;height:22px;border-radius:999px;background:#0F766E;position:relative;"><div style="width:18px;height:18px;border-radius:999px;background:#fff;position:absolute;right:2px;top:2px;"></div></div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:13px;font-weight:600;">Share timeline with Star Health Insurance</div><div style="font-size:11px;color:#7A8884;">Granted for active Case only</div></div><div style="width:38px;height:22px;border-radius:999px;background:#0F766E;position:relative;"><div style="width:18px;height:18px;border-radius:999px;background:#fff;position:absolute;right:2px;top:2px;"></div></div></div>
+                    <div style="border:1px solid #EAE5DC;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;opacity:0.5;"><div><div style="font-size:13px;font-weight:600;">ABHA record sync</div><div style="font-size:11px;color:#7A8884;">Revoked 2 weeks ago</div></div><div style="width:38px;height:22px;border-radius:999px;background:#D8D3C8;position:relative;"><div style="width:18px;height:18px;border-radius:999px;background:#fff;position:absolute;left:2px;top:2px;"></div></div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC31 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <div style="font-size:16px;font-weight:700;color:#1B2422;">Driver Mode</div>
+                    <div style="display:flex;align-items:center;gap:8px;"><div style="font-size:12px;font-weight:600;color:#0E6B3A;">On duty</div><div style="width:44px;height:24px;border-radius:999px;background:#1E9E5C;position:relative;"><div style="width:20px;height:20px;border-radius:999px;background:#fff;position:absolute;right:2px;top:2px;"></div></div></div>
+                  </div>
+                  <div style="border:2px solid #B3261E;border-radius:14px;padding:16px;background:#FBE3E3;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#8C1D1D;">New offer</div><div style="font-size:22px;font-weight:700;color:#8C1D1D;font-variant-numeric:tabular-nums;">00:17</div></div>
+                    <div style="font-size:14px;font-weight:700;color:#1B2422;margin-bottom:4px;">Pickup: MG Road, 2.1 km away</div>
+                    <div style="font-size:12px;color:#5B6B68;margin-bottom:14px;">Critical severity · Chest pain</div>
+                    <div style="display:flex;gap:10px;">
+                      <div style="flex:1;height:56px;border-radius:12px;background:#fff;border:1.5px solid #B3261E;color:#B3261E;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">Decline</div>
+                      <div style="flex:1;height:56px;border-radius:12px;background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">Accept</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isC32 }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column;">
+                  <div style="flex:1;position:relative;background:repeating-linear-gradient(135deg,#E9F3F0,#E9F3F0 10px,#FBF8F3 10px,#FBF8F3 20px);display:flex;align-items:center;justify-content:center;">
+                    <div style="font-family:monospace;font-size:11px;color:#0F766E;background:#fff;padding:4px 8px;border-radius:4px;">turn-by-turn navigation</div>
+                    <div style="position:absolute;top:16px;left:16px;right:16px;background:#1B2422;color:#fff;border-radius:10px;padding:12px 14px;">
+                      <div style="font-size:14px;font-weight:700;">Turn right onto Hosur Road</div>
+                      <div style="font-size:12px;opacity:0.8;">400m · then continue 1.2 km</div>
+                    </div>
+                  </div>
+                  <div style="padding:16px 20px;border-top:1px solid #EAE5DC;">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#7A8884;margin-bottom:8px;">Triage handoff to ER</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                      <div style="padding:6px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">Conscious</div>
+                      <div style="padding:6px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">Breathing normally</div>
+                      <div style="padding:6px 10px;background:#F4F1EA;border-radius:6px;font-size:12px;">No visible bleeding</div>
+                    </div>
+                    <div style="height:48px;border-radius:8px;background:#0F766E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">Send Handoff to ER</div>
+                  </div>
+                </div>
+              </sc-if>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ANNOTATION PANEL -->
+        <div style="flex:1; min-width:320px; max-width:480px; background:#FFFFFF; border:1px solid #EAE5DC; border-radius:12px; padding:22px;">
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:#7A8884; margin-bottom:6px;">Purpose</div>
+          <div style="font-size:14px; line-height:1.55; color:#1B2422; margin-bottom:18px;">{{ currentPurpose }}</div>
+
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:#7A8884; margin-bottom:8px;">States covered</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px;">
+            <sc-for list="{{ currentStates }}" as="st" hint-placeholder-count="3">
+              <div style="font-size:12px; font-weight:600; padding:5px 10px; border-radius:4px; background:{{ st.bg }}; color:{{ st.color }};">{{ st.label }}</div>
+            </sc-for>
+          </div>
+
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:#7A8884; margin-bottom:8px;">Key components</div>
+          <div style="font-size:13px; line-height:1.9; color:#5B6B68; margin-bottom:18px;">{{ currentComponents }}</div>
+
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:#7A8884; margin-bottom:6px;">Business rules</div>
+          <div style="font-size:13px; line-height:1.7; color:#5B6B68;">{{ currentRules }}</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const SCREENS = [
+  {id:'C-01', label:'Splash / Language Select', group:'Onboarding', ref:'GT-05', purpose:'First screen on cold launch. Single restrained illustration, language picker in native scripts (no flags — avoids conflating language with nation), then routes to Guest Entry or Login.', states:['Default'], components:'LanguageSelector (native-script labels) · Illustration (primary.300 on primary.50) · Continue ActionButton', rules:'GT-05 — full required language set, no flag icons.'},
+  {id:'C-02', label:'Guest Entry', group:'Onboarding', ref:'GT-10', purpose:'Zero-friction entry for a bystander who cannot stop to register. Phone number optional; guest may proceed straight to the Emergency action.', states:['Default'], components:'Phone Input (optional) · "Continue as Guest" ActionButton · "Register instead" text link', rules:'GT-10 — guest can have exactly 1 active untracked request before requiring OTP (BR-06).'},
+  {id:'C-03', label:'Registration / OTP Login', group:'Onboarding', ref:'—', purpose:'Standard phone + OTP registration/login for citizens who want persistent, multi-case, family-linked access.', states:['Default','OTP sent','Error — invalid code'], components:'Phone Input · OTP Input (6-segment, auto-advance) · Resend timer', rules:'Standard auth; no PRD-specific business rule beyond OTP delivery.'},
+
+  {id:'C-04', label:'Home', group:'Home', ref:'§A3.1', purpose:'Single entry point. Surfaces the Emergency action and any active Case(s) without requiring navigation. The Emergency action is never gated behind a loading state.', states:['Default (no case)','Active case(s)','Guest vs Registered','Loading (skeleton cards)','Error (stale cached case)'], components:'EscalationCTA (persistent) · Case Card ×N · Emergency ActionButton · Non-emergency search grid', rules:'GT-10 guest 1-case limit (BR-06) · multi-case aggregation for caregivers (§A3.1).'},
+  {id:'C-05', label:'Emergency Triage Intake', group:'Home', ref:'FR-AMB-001', purpose:'Captures minimal triage data (conscious / breathing / bleeding) and location to create a Case + Ambulance Request. Voice-first, large single-tap answers — never free text.', states:['Location pending','Location confirmed','Submitting (optimistic transition)','Location unavailable → manual pin','Offline queued'], components:'Location control · Voice/tap triage question set · Submit ActionButton (touch.emergency)', rules:'BR-05 — triage data is routing metadata only, never auto-diagnosis. GT-03 offline queue.'},
+  {id:'C-06', label:'Ambulance Searching / Matching', group:'Home', ref:'FR-AMB-002', purpose:'Live matching progress. The platform\'s most important loading state — must never appear frozen. Escalation CTA appears only after a configurable wait.', states:['Searching (HeartbeatPulse)','Radius widened','Matched','No-match → escalated (EF-01)'], components:'SeverityIndicator · HeartbeatPulse progress · EscalationCTA (delayed appearance)', rules:'BR-01 90s SLA · BR-03 20s per-driver offer window (abstracted from citizen view).'},
+  {id:'C-07', label:'Ambulance Live Tracking', group:'Home', ref:'FR-AMB-003', purpose:'Live ETA and driver visibility once matched. Degrades to ETA-text fallback under low network rather than a frozen map.', states:['En-route to pickup','Arrived at pickup','En-route to hospital','Signal lost (last-known + staleness)'], components:'LiveTrackingMap / ETATextFallback · Driver info card · ETA display · Cancel action', rules:'FR-AMB-003 3s refresh · BR-04 locked assignment, no reassignment UI shown to citizen.'},
+  {id:'C-08', label:'Ambulance Arrival Confirmation', group:'Home', ref:'§1.12', purpose:'Terminal state of the tracking flow. Single confirm-arrival action; transitions the Case forward with the ambulance leg marked complete.', states:['Default','Confirmed'], components:'Quiet checkmark illustration · Confirm ActionButton', rules:'§1.21 — Case transitions to next stage (bed leg becomes primary) on confirmation.'},
+
+  {id:'C-09', label:'Case Dashboard', group:'Case', ref:'§A3.1', purpose:'THE central screen of the platform — single place to answer "what is happening to me right now." NextActionBanner is the deliberately loudest element on screen.', states:['Single-service active','Multi-service active','Awaiting next action','Resolved','Degraded card (one service failed)'], components:'CaseDashboardHeader (severity + Golden Hour clock) · NextActionBanner · linked-service ResourceCards · EscalationCTA', rules:'§A3.1 full structural spec · GT-11 degraded card never blocks the rest of the dashboard.'},
+  {id:'C-10', label:'Case Timeline (full view)', group:'Case', ref:'§A3.2', purpose:'Immutable, chronological, human-readable event log. No edit affordance on any past entry, ever. Exportable as a shareable summary.', states:['Populated','Filtered','Pagination loading (inline, list-end)'], components:'TimelineEntry list · filter-by-service-type · Export/Share ActionButton', rules:'§A3.2 append-only, never edited · GT-07 consent-scoped visibility per viewer role.'},
+  {id:'C-11', label:'Human Coordinator Escalation', group:'Case', ref:'GT-08', purpose:'Always-reachable, never a dead-end form. Shows live coordinator connection status so a citizen always sees forward progress.', states:['Requesting coordinator','Connected','Queued (wait estimate shown)'], components:'EscalationCTA · Live connection status · Case context summary (auto-attached)', rules:'GT-08 — never more than one tap/click from any Case-related screen.'},
+
+  {id:'C-12', label:'Bed Search', group:'Search & Booking', ref:'FR-BED-002', purpose:'Generic SearchTemplate configured for hospital beds. Staleness flag is mandatory on every result card, not optional.', states:['Results loaded','Filtered','Empty (no matches)','Stale result flagged'], components:'GlobalSearchBar · filter chips · SearchResultList (Hospital Card config of ResourceCard)', rules:'Module 2 §2.16/§2.17 filters/sorting · staleness mandatory per §13.1.'},
+  {id:'C-13', label:'Bed Detail + Hold Confirmation', group:'Search & Booking', ref:'FR-BED-003', purpose:'Hospital detail with a Hold action. ICU/Ventilator shows an explicit two-step pending state (BR-04); General beds auto-confirm in one step.', states:['Detail (pre-hold)','Hold placed — General (auto-confirmed)','Hold placed — ICU/Vent (pending ack)'], components:'Hospital detail header · Bed-category selector · Bottom-sheet hold confirmation', rules:'BR-04 — ICU/Vent requires provider Clinical Lead acknowledgment before confirming.'},
+  {id:'C-14', label:'Bed Hold Status', group:'Search & Booking', ref:'§2.19', purpose:'Countdown to expiry while a hold is not yet confirmed. Auto re-search offered on first expiry; escalates to a human coordinator on a second.', states:['Pending (countdown)','Confirmed','Expired → re-search offered'], components:'HoldCountdown (color escalates neutral→warning→danger) · Case Dashboard link', rules:'BR-02 hold countdown pattern, reused across every ResourceHold type.'},
+
+  {id:'C-15', label:'Doctor Search', group:'Search & Booking', ref:'Module 3', purpose:'SearchTemplate configured for doctors — specialty filter, next-available-slot surfaced directly on each card.', states:['Results loaded','Filtered by specialty','Empty'], components:'GlobalSearchBar · specialty filter chips · Doctor Card (specialty tag + slot chip)', rules:'Module 3 §Search Filters/§Sorting Options.'},
+  {id:'C-16', label:'Doctor Detail + Booking', group:'Search & Booking', ref:'FR-DOC-001', purpose:'Doctor profile with available-slot calendar and a booking confirmation step.', states:['Detail','Slot selected','Booking confirmed'], components:'Doctor profile header · Slot picker · Confirm ActionButton', rules:'FR-DOC-001 booking workflow.'},
+  {id:'C-17', label:'Teleconsult Session', group:'Search & Booking', ref:'Module 3', purpose:'Video consultation surface, consent-gated per Module 3\'s strictest privacy tier.', states:['Connecting','In-session','Ended'], components:'Video component (Part J) · Consent gate · In-call controls', rules:'Module 3 §5 Privacy — strictest consent tier before video starts.'},
+
+  {id:'C-18', label:'Nearby Hospitals Directory', group:'Search & Booking', ref:'Module 4', purpose:'Browsable directory of nearby hospitals, distance-sorted, for self-transport or general awareness (not a Case-linked flow).', states:['Results loaded','Empty (no coverage in area)'], components:'SearchResultList (Hospital Card, distance + occupancy-% mini-indicator)', rules:'Module 4 sorting by distance.'},
+  {id:'C-19', label:'Hospital Profile', group:'Search & Booking', ref:'FR-NBH-001', purpose:'Full hospital detail — services offered, bed categories, contact, directions.', states:['Default'], components:'Hospital header · Services list · Directions ActionButton', rules:'FR-NBH-001.'},
+
+  {id:'C-20', label:'Pharmacy Search', group:'Search & Booking', ref:'Module 5', purpose:'SearchTemplate configured for pharmacy stock — medicine name search with per-pharmacy stock status.', states:['Results loaded','Empty'], components:'GlobalSearchBar · Pharmacy Card (stock StatusBadge)', rules:'Module 5 search/sort.'},
+  {id:'C-21', label:'Pharmacy Stock Hold + Fulfillment', group:'Search & Booking', ref:'FR-PHR-001', purpose:'Places a stock hold on a medicine at a chosen pharmacy and tracks fulfillment to pickup.', states:['Hold placed','Ready for pickup','Fulfilled'], components:'HoldCountdown · StatusBadge progression · Pickup confirmation', rules:'FR-PHR-001.'},
+
+  {id:'C-22', label:'Blood Bank Search', group:'Search & Booking', ref:'Module 6', purpose:'Search by blood group/component across nearby blood banks.', states:['Results loaded','Empty (no matching group nearby)'], components:'Blood-group filter chips · SearchResultList (Blood Bank Card)', rules:'Module 6 search/sort.'},
+  {id:'C-23', label:'Blood Request / Donor Match Status', group:'Search & Booking', ref:'FR-BLD-001', purpose:'Tracks a blood request against inventory and/or a live donor match.', states:['Searching donor/inventory','Matched','Fulfilled'], components:'HoldCountdown · Donor match card · StatusBadge', rules:'FR-BLD-001.'},
+
+  {id:'C-24', label:'Insurance / Pre-Auth Status', group:'Search & Booking', ref:'FR-INS-001', purpose:'Tracks a pre-authorization request status against a linked Case, for cashless admission.', states:['Submitted','Under review','Approved','Rejected (with reason)'], components:'StatusBadge progression · Insurer detail card · Reason text (on rejection)', rules:'FR-INS-001.'},
+
+  {id:'C-25', label:'Diagnostic Test Search + Booking', group:'Search & Booking', ref:'Module 8', purpose:'SearchTemplate configured for diagnostic centers/tests, with a booking step for sample collection or in-center visit.', states:['Results loaded','Slot selected','Booking confirmed'], components:'GlobalSearchBar · Diagnostic Center Card · Slot picker', rules:'Module 8 search/sort/booking.'},
+  {id:'C-26', label:'Diagnostic Result View', group:'Search & Booking', ref:'FR-DIAG-001', purpose:'View/download a completed diagnostic result once uploaded by the provider.', states:['Pending','Ready — result view','Downloaded'], components:'StatusBadge · Result summary card · Download ActionButton', rules:'FR-DIAG-001.'},
+
+  {id:'C-27', label:'Cancer Hospital / Modality Search', group:'Search & Booking', ref:'FR-CAN-001', purpose:'SearchTemplate configured for oncology centers, filterable by treatment modality.', states:['Results loaded','Filtered by modality'], components:'Modality filter chips · Hospital Card (radiating-target icon)', rules:'FR-CAN-001.'},
+
+  {id:'C-28', label:'CHRONIC_MANAGEMENT Case View', group:'Ongoing Care', ref:'Module 9', purpose:'A Case Dashboard configuration for chronic-condition management — a distinct, cyclical status machine (DIAGNOSIS_INTAKE → … → SURVEILLANCE) rather than a one-time resolution.', states:['Diagnosis intake','Active treatment','Surveillance (ongoing)'], components:'CaseDashboardHeader (cyclical stage tracker variant) · linked-service ResourceCards', rules:'PRD §9 — flagged as possibly needing a dedicated variant; treated as a C-09 configuration.'},
+
+  {id:'C-29', label:'Profile / Family Linkage', group:'Account', ref:'§1.15', purpose:'Manage personal details, ABHA linkage, and linked family/caregiver members who can see and act on the citizen\'s Cases.', states:['Default','Add family member','Linked member list'], components:'Profile fields · ABHA link card · Family member list + invite ActionButton', rules:'§1.15.'},
+  {id:'C-30', label:'Consent Management', group:'Account', ref:'Part I1', purpose:'Implements the revocable-artifact consent model — one toggle per active consent grant, never bundled.', states:['Active consents','Revoked'], components:'Consent list, one toggle per grant · Revoke confirmation', rules:'Part I1 revocable-artifact model.'},
+
+  {id:'C-31', label:'Driver: Go On-Duty / Incoming Offer', group:'Driver Mode', ref:'FR-AMB-002', purpose:'Role-gated driver flow inside the same app. 20-second sequential offer window; driver never sees two simultaneous offers.', states:['Off-duty','On-duty idle (waiting)','Offer pending (20s countdown)','Assigned'], components:'On-duty toggle · Incoming-offer card · Accept/Decline (touch.emergency)', rules:'BR-03 20s window, sequential · BR-04 accept locks assignment.'},
+  {id:'C-32', label:'Driver: Navigate + Handoff', group:'Driver Mode', ref:'FR-AMB-004', purpose:'Turn-by-turn navigation to pickup/hospital plus a structured, minimal-typing triage handoff form to the receiving ER.', states:['Navigating to pickup','Navigating to hospital','Handoff form'], components:'Turn-by-turn map · Structured handoff form (minimal typing)', rules:'FR-AMB-004.'},
+];
+
+const STATE_STYLES = {
+  bg: '#F4F1EA', color: '#5B6B68'
+};
+
+class Component extends DCLogic {
+  state = { selected: 'C-04' };
+
+  renderVals() {
+    const sel = this.state.selected;
+    const groupOrder = ['Onboarding','Home','Case','Search & Booking','Ongoing Care','Account','Driver Mode'];
+    const groups = groupOrder.map(title => ({
+      title,
+      items: SCREENS.filter(s => s.group === title).map(s => {
+        const isSel = s.id === sel;
+        return {
+          id: s.id,
+          label: s.label,
+          bg: isSel ? '#0F766E' : 'transparent',
+          idColor: isSel ? '#E9F3F0' : '#0F766E',
+          textColor: isSel ? '#FFFFFF' : '#1B2422',
+          weight: isSel ? 600 : 400,
+          onClick: () => this.setState({ selected: s.id }),
+        };
+      }),
+    }));
+
+    const cur = SCREENS.find(s => s.id === sel) || SCREENS[0];
+    const stateColors = ['#E9F3F0,#0F766E', '#FBF0D9,#8A5A00', '#FBE3E3,#8C1D1D', '#DFF5E9,#0E6B3A'];
+    const currentStates = cur.states.map((label, i) => {
+      const [bg, color] = stateColors[i % stateColors.length].split(',');
+      return { label, bg, color };
+    });
+
+    const flags = {};
+    SCREENS.forEach(s => { flags['is' + s.id.replace('-', '')] = s.id === sel; });
+
+    return {
+      navGroups: groups,
+      currentId: cur.id,
+      currentTitle: cur.label,
+      currentRef: cur.ref,
+      currentPurpose: cur.purpose,
+      currentStates,
+      currentComponents: cur.components,
+      currentRules: cur.rules,
+      ...flags,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

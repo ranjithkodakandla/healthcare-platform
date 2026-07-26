@@ -1,0 +1,41 @@
+{
+  "name": "sahayak",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.9.0 <25"
+  },
+  "scripts": {
+    "e2e": "playwright test --project=citizen --project=provider --project=admin --project=platform && npm run e2e:a11y",
+    "e2e:a11y": "node scripts/run-a11y.js",
+    "responsive:capture": "node scripts/responsive-capture.js",
+    "rtm:generate": "node scripts/generate-rtm.js",
+    "audit:deps": "node scripts/dependency-audit.js",
+    "test:unit": "npm run test:ci -w @sahayak/shared-constants && npm test -w @sahayak/api -- --ci --coverage && npm run test:coverage -w citizen-app && npm run test:coverage -w provider-portal && npm run test:coverage -w admin-console",
+    "format": "prettier --write \"scripts/**/*.{js,ts,yml,yaml}\" \"utils/**/*.{js,ts}\" \"playwright.config.ts\" \".github/**/*.{yml,yaml}\" \"packages/shared-constants/src/**/*.{ts,js}\" \"*.md\"",
+    "format:check": "prettier --check \"scripts/**/*.{js,ts}\" \"utils/**/*.{js,ts}\" \"playwright.config.ts\" \".github/**/*.{yml,yaml}\" \"packages/shared-constants/src/**/*.{ts,js}\"",
+    "analyze:static": "node scripts/static-analysis.js",
+    "secrets:scan": "node scripts/secret-scan.js",
+    "ci:local": "bash scripts/ci-local.sh",
+    "bundle:budget": "node scripts/bundle-budget.js",
+    "e2e:citizen": "playwright test --project=citizen",
+    "e2e:provider": "playwright test --project=provider",
+    "e2e:admin": "playwright test --project=admin",
+    "e2e:platform": "playwright test --project=platform",
+    "e2e:demo": "E2E_DEMO=1 playwright test --project=demo",
+    "e2e:stitch": "npx tsx utils/stitch-demo.ts",
+    "e2e:report": "playwright show-report",
+    "e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^20.19.43",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.1",
+    "typescript": "^5.9.3"
+  }
+}

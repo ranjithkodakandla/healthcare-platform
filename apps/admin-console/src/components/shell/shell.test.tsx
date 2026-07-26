@@ -1,0 +1,40 @@
+import { render, screen } from '@testing-library/react';
+import { ConsoleShell } from './ConsoleShell';
+import { Sidebar } from './Sidebar';
+import { TopBar } from './TopBar';
+
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+describe('admin shell', () => {
+  it('renders sidebar and topbar', () => {
+    render(
+      <>
+        <Sidebar />
+        <TopBar title="Ops" screenId="A-02" />
+      </>,
+    );
+    expect(screen.getByText('Operations Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Ops')).toBeInTheDocument();
+    expect(screen.getByText('A-02')).toBeInTheDocument();
+  });
+
+  it('ConsoleShell exposes mobile menu control', () => {
+    render(
+      <ConsoleShell>
+        <div>Page</div>
+      </ConsoleShell>,
+    );
+    expect(screen.getByLabelText(/Open navigation menu/i)).toBeInTheDocument();
+    expect(screen.getByText('Page')).toBeInTheDocument();
+  });
+});
+

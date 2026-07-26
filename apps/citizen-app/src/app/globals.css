@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import "tailwindcss";
+
+:root {
+  --brand: #0F766E;
+  --brand-light: #E9F3F0;
+  --brand-lighter: #FBF8F3;
+  --surface-page: #F4F1EA;
+  --text-primary: #1B2422;
+  --text-secondary: #5B6B68;
+  --text-muted: #7A8884;
+  --border: #EAE5DC;
+  --border-strong: #D8D3C8;
+  --emergency: #B3261E;
+  --emergency-dark: #8C1D1D;
+  --warning: #D98C0E;
+  --warning-text: #8A5A00;
+  --warning-bg: #FBF0D9;
+  --success: #1E9E5C;
+  --success-bg: #DFF5E9;
+  --success-text: #0E6B3A;
+  --phone-frame: 390px;
+  --phone-frame-tablet: 430px;
+}
+
+* {
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile-first phone frame — centered on tablet/desktop (native-app feel) */
+.mobile-shell {
+  width: 100%;
+  max-width: var(--phone-frame);
+  min-height: 100dvh;
+  min-height: 100svh;
+  margin: 0 auto;
+  background: #FFFFFF;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(27, 36, 34, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+@media (min-width: 768px) {
+  .mobile-shell {
+    max-width: var(--phone-frame-tablet);
+    min-height: min(100dvh, 900px);
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 24px;
+    box-shadow:
+      0 0 0 1px rgba(27, 36, 34, 0.08),
+      0 24px 48px rgba(27, 36, 34, 0.12);
+    overflow: hidden;
+  }
+}
+
+@media (min-width: 1280px) {
+  .mobile-shell {
+    max-width: 390px;
+  }
+}
+
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Systemic touch target floor (UX-015) */
+button,
+a,
+[role='button'],
+input,
+select,
+textarea {
+  min-height: 44px;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  min-height: 20px;
+  min-width: 20px;
+}

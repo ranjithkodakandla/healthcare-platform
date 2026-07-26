@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Builds & caches
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+apps/api/openapi.json
+
+# Env & secrets (never commit)
+.env
+.env.*
+!.env.example
+!.env.e2e.example
+!.env*.example
+*.pem
+*.p12
+*credentials*.json
+!-package*.json
+service-account*.json
+google-services.json
+
+# Logs & OS
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# Test / coverage / Playwright
+coverage/
+.nyc_output/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/reports/
+!reports/.gitkeep
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+
+# Large / generated / local-only design dumps
+.wireframes/
+*.zip
+.smoke-*.html
+Rakshak-Demo.mp4
+*.mp4
+
+# Misc local tooling
+.cursor/
+.claude/
+tmp/
+.tmp/

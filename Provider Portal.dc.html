@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#F2F4F5; font-family:'Noto Sans', sans-serif; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#C7CDD0; border-radius:4px; }
+  * { box-sizing:border-box; font-variant-numeric:tabular-nums; }
+</style>
+</helmet>
+
+<div style="display:flex; min-height:100vh; background:#F2F4F5; color:#1A1D1F;">
+
+  <!-- SCREEN PICKER SIDEBAR -->
+  <div style="width:296px; flex-shrink:0; background:#FFFFFF; border-right:1px solid #E7EBEC; height:100vh; position:sticky; top:0; overflow-y:auto; padding:20px 0 40px;">
+    <div style="padding:0 20px 16px; border-bottom:1px solid #E7EBEC; margin-bottom:8px;">
+      <div style="font-size:12px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:#0B5C66;">India Healthcare Coordination Platform</div>
+      <div style="font-size:18px; font-weight:700; color:#1A1D1F; margin-top:4px;">Provider Portal</div>
+      <div style="font-size:12px; color:#7C8388; margin-top:2px;">19 screens · P-01 – P-19</div>
+    </div>
+    <sc-for list="{{ navGroups }}" as="grp" hint-placeholder-count="8">
+      <div style="padding:14px 20px 6px;">
+        <div style="font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:#7C8388;">{{ grp.title }}</div>
+      </div>
+      <sc-for list="{{ grp.items }}" as="item" hint-placeholder-count="3">
+        <div onClick="{{ item.onClick }}" style="cursor:pointer; display:flex; align-items:center; gap:10px; margin:2px 10px; padding:8px 10px; border-radius:8px; background:{{ item.bg }}; min-height:40px;">
+          <div style="font-size:11px; font-weight:700; color:{{ item.idColor }}; width:34px; flex-shrink:0;">{{ item.id }}</div>
+          <div style="font-size:13px; font-weight:{{ item.weight }}; color:{{ item.textColor }}; line-height:1.3;">{{ item.label }}</div>
+        </div>
+      </sc-for>
+    </sc-for>
+  </div>
+
+  <!-- MAIN -->
+  <div style="flex:1; padding:36px; min-width:0;">
+    <div style="max-width:1500px; margin:0 auto;">
+
+      <div style="display:flex; align-items:baseline; gap:12px; margin-bottom:20px;">
+        <div style="font-size:26px; font-weight:700; color:#1A1D1F;">{{ currentTitle }}</div>
+        <div style="font-size:13px; font-weight:600; color:#0B5C66; background:#DEF3F5; padding:3px 10px; border-radius:4px; white-space:nowrap; flex-shrink:0;">{{ currentId }}</div>
+        <div style="font-size:13px; color:#7C8388; white-space:nowrap; flex-shrink:0;">Ref: {{ currentRef }}</div>
+      </div>
+
+      <!-- BROWSER FRAME -->
+      <div style="background:#FFFFFF; border-radius:12px; box-shadow:0 12px 32px rgba(26,29,31,0.14); overflow:hidden; border:1px solid #E7EBEC;">
+        <div style="height:40px; background:#F2F4F5; border-bottom:1px solid #E7EBEC; display:flex; align-items:center; gap:8px; padding:0 14px;">
+          <div style="display:flex; gap:6px;">
+            <div style="width:11px;height:11px;border-radius:999px;background:#E7EBEC;"></div>
+            <div style="width:11px;height:11px;border-radius:999px;background:#E7EBEC;"></div>
+            <div style="width:11px;height:11px;border-radius:999px;background:#E7EBEC;"></div>
+          </div>
+          <div style="flex:1; margin:0 10px; height:24px; background:#FFFFFF; border:1px solid #E7EBEC; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:12px; color:#7C8388;">portal.healthcoordination.in/{{ currentSlug }}</div>
+        </div>
+
+        <sc-if value="{{ isP01 }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; min-height:640px; align-items:center; justify-content:center; background:#F3FBFC; padding:40px;">
+            <div style="width:420px; background:#fff; border-radius:12px; border:1px solid #E7EBEC; padding:36px; box-shadow:0 4px 12px rgba(26,29,31,0.08);">
+              <div style="width:44px;height:44px;border-radius:10px;background:#0B5C66;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+                <div style="width:18px;height:18px;position:relative;"><div style="position:absolute;left:7px;top:0;width:4px;height:18px;background:#fff;border-radius:2px;"></div><div style="position:absolute;left:0;top:7px;width:18px;height:4px;background:#fff;border-radius:2px;"></div></div>
+              </div>
+              <div style="font-size:20px; font-weight:700; color:#1A1D1F;">Provider Portal sign in</div>
+              <div style="font-size:13px; color:#7C8388; margin:4px 0 20px;">Org-scoped access · MFA required</div>
+
+              <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; color:#7C8388; margin-bottom:8px;">Select your portal</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+                <sc-for list="{{ portalChoices }}" as="p" hint-placeholder-count="7">
+                  <div style="border:1.5px solid {{ p.border }}; background:{{ p.bg }}; border-radius:8px; padding:10px; font-size:12px; font-weight:600; color:{{ p.color }}; text-align:center;">{{ p.label }}</div>
+                </sc-for>
+              </div>
+
+              <div style="font-size:12px; font-weight:600; color:#4A5054; margin-bottom:6px;">Organization ID</div>
+              <div style="height:44px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#7C8388; margin-bottom:14px;">APL-BLR-0142</div>
+              <div style="font-size:12px; font-weight:600; color:#4A5054; margin-bottom:6px;">Email or staff ID</div>
+              <div style="height:44px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#7C8388; margin-bottom:14px;">admissions@apollo-blr.in</div>
+              <div style="font-size:12px; font-weight:600; color:#4A5054; margin-bottom:6px;">Password</div>
+              <div style="height:44px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#7C8388; margin-bottom:18px;">••••••••••</div>
+              <div style="height:44px; border-radius:8px; background:#0B5C66; color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-bottom:12px;">Continue</div>
+              <div style="font-size:12px; color:#7C8388; text-align:center;">You'll be asked for a one-time code next (MFA) &nbsp;·&nbsp; <span style="color:#0B5C66; font-weight:600;">Forgot password</span></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showShell }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; min-height:720px;">
+
+          <!-- PORTAL SIDEBAR -->
+          <div style="width:232px; flex-shrink:0; background:#04363D; padding:18px 0;">
+            <div style="padding:0 18px 16px; border-bottom:1px solid rgba(255,255,255,0.12); margin-bottom:8px;">
+              <div style="font-size:13px; font-weight:700; color:#fff;">{{ portalName }}</div>
+              <div style="font-size:11px; color:#8FC6BE; margin-top:2px;">{{ orgName }}</div>
+            </div>
+            <sc-for list="{{ shellNavItems }}" as="nav" hint-placeholder-count="12">
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 18px; margin:1px 8px; border-radius:6px; background:{{ nav.bg }}; font-size:13px; font-weight:{{ nav.weight }}; color:{{ nav.color }};">{{ nav.label }}</div>
+            </sc-for>
+          </div>
+
+          <!-- CONTENT COLUMN -->
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#F2F4F5;">
+            <!-- TOP HEADER -->
+            <div style="height:56px; flex-shrink:0; background:#fff; border-bottom:1px solid #E7EBEC; display:flex; align-items:center; justify-content:space-between; padding:0 24px;">
+              <div style="height:32px; width:280px; border:1px solid #E7EBEC; border-radius:8px; background:#F2F4F5; display:flex; align-items:center; padding:0 12px; font-size:12px; color:#7C8388;">Search cases, patients, staff…</div>
+              <div style="display:flex; align-items:center; gap:16px;">
+                <div style="position:relative; width:20px; height:20px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A5054" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 004 0"/></svg>
+                  <div style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:999px; background:#C62E2E;"></div>
+                </div>
+                <div style="width:32px; height:32px; border-radius:999px; background:#DEF3F5; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#0B5C66;">AS</div>
+              </div>
+            </div>
+
+            <div style="flex:1; overflow-y:auto; padding:28px;">
+
+              <!-- P-02 DASHBOARD -->
+              <sc-if value="{{ isP02 }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                  <div style="font-size:20px; font-weight:700; color:#1A1D1F;">Dashboard</div>
+                  <div style="font-size:12px; color:#7C8388;">Last synced 2 min ago</div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:12px; color:#7C8388; font-weight:600;">Bed occupancy</div>
+                    <div style="font-size:32px; font-weight:700; color:#1A1D1F; margin-top:6px;">82%</div>
+                    <div style="font-size:12px; color:#0E6B3A; margin-top:4px;">Anchor metric · 41/50 occupied</div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:12px; color:#7C8388; font-weight:600;">Pending actions</div>
+                    <div style="font-size:32px; font-weight:700; color:#D98C0E; margin-top:6px;">5</div>
+                    <div style="font-size:12px; color:#7C8388; margin-top:4px;">3 ICU holds · 2 triage handoffs</div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:12px; color:#7C8388; font-weight:600;">SLA breaches (24h)</div>
+                    <div style="font-size:32px; font-weight:700; color:#C62E2E; margin-top:6px;">1</div>
+                    <div style="font-size:12px; color:#7C8388; margin-top:4px;">ICU ack exceeded 10 min</div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:12px; color:#7C8388; font-weight:600;">Active linked Cases</div>
+                    <div style="font-size:32px; font-weight:700; color:#1A1D1F; margin-top:6px;">14</div>
+                    <div style="font-size:12px; color:#7C8388; margin-top:4px;">Across ambulance + bed legs</div>
+                  </div>
+                </div>
+
+                <div style="background:#DEF3F5; border-radius:12px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                  <div>
+                    <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:#0B5C66; margin-bottom:4px;">Next action needed</div>
+                    <div style="font-size:14px; font-weight:600; color:#1A1D1F;">3 ICU bed holds are awaiting Clinical Lead acknowledgment</div>
+                  </div>
+                  <div style="height:38px; padding:0 18px; border-radius:8px; background:#0B5C66; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; flex-shrink:0;">Review queue</div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:14px; font-weight:700; margin-bottom:12px;">Incoming Patients Queue</div>
+                    <sc-for list="{{ dashQueue }}" as="q" hint-placeholder-count="3">
+                      <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #E7EBEC;">
+                        <div style="width:8px;height:8px;border-radius:2px;background:{{ q.color }};flex-shrink:0;"></div>
+                        <div style="flex:1; font-size:13px; font-weight:600;">{{ q.name }}</div>
+                        <div style="font-size:12px; color:#7C8388;">{{ q.type }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background:#fff; border:1px solid #C7CDD0; border-radius:12px; padding:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                      <div style="font-size:14px; font-weight:700;">Capacity Forecast (6–24h)</div>
+                      <div style="font-size:10px; font-weight:700; color:#8A5A00; background:#FBF0D9; padding:2px 8px; border-radius:4px;">ADVISORY</div>
+                    </div>
+                    <div style="height:90px; border-radius:8px; background:repeating-linear-gradient(120deg,#F3FBFC,#F3FBFC 8px,#DEF3F5 8px,#DEF3F5 16px); display:flex; align-items:center; justify-content:center; font-family:monospace; font-size:11px; color:#0B5C66;">forecast trend chart</div>
+                    <div style="font-size:11px; color:#7C8388; margin-top:8px;">AI-generated · does not alter live bed counts (FR-HOSP-003)</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-03 OPERATIONAL DATA UPDATE -->
+              <sc-if value="{{ isP03 }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                  <div style="font-size:20px; font-weight:700;">Bed Inventory Update</div>
+                  <div style="font-size:12px; color:#D98C0E; background:#FBF0D9; padding:4px 10px; border-radius:4px; font-weight:600;">Last updated 6 min ago</div>
+                </div>
+                <div style="font-size:13px; color:#7C8388; margin-bottom:20px;">Update counts, then submit — target under 15 seconds.</div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:20px; max-width:760px;">
+                  <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px; font-size:11px; font-weight:700; text-transform:uppercase; color:#7C8388; padding-bottom:10px; border-bottom:1px solid #E7EBEC;">
+                    <div>Category</div><div>Total</div><div>Available</div><div>Occupied</div>
+                  </div>
+                  <sc-for list="{{ bedCategories }}" as="c" hint-placeholder-count="6">
+                    <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px; align-items:center; padding:12px 0; border-bottom:1px solid #E7EBEC;">
+                      <div style="font-size:13px; font-weight:600;">{{ c.name }}</div>
+                      <div style="font-size:14px; font-weight:700;">{{ c.total }}</div>
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="width:26px;height:26px;border-radius:6px;background:#F2F4F5;display:flex;align-items:center;justify-content:center;font-weight:700;color:#4A5054;">–</div>
+                        <div style="font-size:15px; font-weight:700; width:28px; text-align:center;">{{ c.available }}</div>
+                        <div style="width:26px;height:26px;border-radius:6px;background:#F2F4F5;display:flex;align-items:center;justify-content:center;font-weight:700;color:#4A5054;">+</div>
+                      </div>
+                      <div style="font-size:14px; color:#7C8388;">{{ c.occupied }}</div>
+                    </div>
+                  </sc-for>
+                  <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+                    <div style="height:42px; padding:0 24px; border-radius:8px; background:#0B5C66; color:#fff; font-size:14px; font-weight:700; display:flex; align-items:center;">Submit update</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-04 INCOMING PATIENTS / BOOKING QUEUE -->
+              <sc-if value="{{ isP04 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Incoming Patients / Booking Queue</div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                  <div style="display:grid; grid-template-columns:1fr 1.6fr 1.3fr 1fr 1.3fr; gap:10px; padding:12px 18px; background:#F2F4F5; font-size:11px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                    <div>Severity</div><div>Case</div><div>Type</div><div>Category</div><div>Actions</div>
+                  </div>
+                  <sc-for list="{{ bookingQueue }}" as="row" hint-placeholder-count="4">
+                    <div style="display:grid; grid-template-columns:1fr 1.6fr 1.3fr 1fr 1.3fr; gap:10px; align-items:center; padding:14px 18px; border-top:1px solid #E7EBEC;">
+                      <div style="display:flex; align-items:center; gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:{{ row.sevColor }};"></div><div style="font-size:12px; font-weight:700; color:{{ row.sevColor }};">{{ row.severity }}</div></div>
+                      <div style="font-size:13px; font-weight:600;">{{ row.caseName }}</div>
+                      <div style="font-size:13px; color:#4A5054;">{{ row.type }}</div>
+                      <div style="font-size:13px; color:#4A5054;">{{ row.category }}</div>
+                      <div style="display:flex; gap:6px;">
+                        <div style="height:30px; padding:0 12px; border-radius:6px; background:#0B5C66; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center;">Confirm</div>
+                        <div style="height:30px; padding:0 12px; border-radius:6px; border:1px solid #C7CDD0; font-size:11px; font-weight:700; display:flex; align-items:center; color:#4A5054;">Decline</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-05 ICU/VENT CLINICAL ACK -->
+              <sc-if value="{{ isP05 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:4px;">ICU / Ventilator Clinical Acknowledgment</div>
+                <div style="font-size:13px; color:#7C8388; margin-bottom:20px;">Separate from general Admissions queue — zero-tolerance audit gate (FR-HOSP-002, BR-04).</div>
+                <sc-for list="{{ clinicalAcks }}" as="ack" hint-placeholder-count="2">
+                  <div style="background:#fff; border:1.5px solid #8A5A00; border-radius:12px; padding:18px; margin-bottom:14px; max-width:640px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                      <div style="font-size:14px; font-weight:700;">{{ ack.caseName }} · {{ ack.category }}</div>
+                      <div style="font-size:11px; font-weight:700; color:#8A5A00; background:#FBF0D9; padding:3px 9px; border-radius:4px;">Awaiting acknowledgment</div>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:8px;">
+                      <div style="width:18px;height:18px;border:2px solid #0B5C66;border-radius:4px;flex-shrink:0;margin-top:1px;"></div>
+                      <div style="font-size:13px; color:#1A1D1F;">I have verified the {{ ack.category }} bed is physically available and staffed</div>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:14px;">
+                      <div style="width:18px;height:18px;border:2px solid #0B5C66;border-radius:4px;flex-shrink:0;margin-top:1px;"></div>
+                      <div style="font-size:13px; color:#1A1D1F;">Clinical readiness confirmed by Dr. {{ ack.clinician }}</div>
+                    </div>
+                    <div style="height:38px; width:200px; border-radius:8px; background:#C7CDD0; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">Confirm bed — both required</div>
+                  </div>
+                </sc-for>
+              </sc-if>
+
+              <!-- P-06 CASE MANAGEMENT -->
+              <sc-if value="{{ isP06 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Case Management</div>
+                <div style="display:grid; grid-template-columns:1fr 1.6fr; gap:16px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                    <sc-for list="{{ scopedCases }}" as="cs" hint-placeholder-count="3">
+                      <div style="padding:14px 16px; border-bottom:1px solid #E7EBEC; background:{{ cs.bg }};">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><div style="font-size:13px; font-weight:700;">{{ cs.name }}</div><div style="font-size:11px; font-weight:700; color:{{ cs.sevColor }};">{{ cs.severity }}</div></div>
+                        <div style="font-size:12px; color:#7C8388;">{{ cs.summary }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:20px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:4px;">Case CASE-88213 — Hospital-scoped Timeline</div>
+                    <div style="font-size:11px; color:#7C8388; margin-bottom:16px;">Consent-scoped view — only bed/triage-relevant events shown (GT-07)</div>
+                    <div style="position:relative; padding-left:18px;">
+                      <div style="position:absolute; left:4px; top:4px; bottom:10px; width:2px; background:#E7EBEC;"></div>
+                      <sc-for list="{{ scopedTimeline }}" as="t" hint-placeholder-count="4">
+                        <div style="position:relative; padding-bottom:16px;">
+                          <div style="position:absolute; left:-18px; top:3px; width:10px; height:10px; border-radius:999px; background:{{ t.color }};"></div>
+                          <div style="font-size:11px; color:#7C8388;">{{ t.time }}</div>
+                          <div style="font-size:13px; color:#1A1D1F;">{{ t.text }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-07 REPORTS -->
+              <sc-if value="{{ isP07 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Reports</div>
+                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px;">
+                  <sc-for list="{{ reportCatalogue }}" as="r" hint-placeholder-count="3">
+                    <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:16px;">
+                      <div style="font-size:13px; font-weight:700; margin-bottom:6px;">{{ r.name }}</div>
+                      <div style="font-size:12px; color:#7C8388; margin-bottom:14px; line-height:1.4;">{{ r.desc }}</div>
+                      <div style="height:34px; border-radius:6px; background:#DEF3F5; color:#0B5C66; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;">Generate</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Recently generated</div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                  <sc-for list="{{ recentReports }}" as="rr" hint-placeholder-count="3">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 18px; border-bottom:1px solid #E7EBEC; font-size:13px;">
+                      <div>{{ rr.name }}</div><div style="color:#7C8388; font-size:12px;">{{ rr.date }}</div><div style="color:#0B5C66; font-weight:600; font-size:12px;">Download</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-08 ANALYTICS -->
+              <sc-if value="{{ isP08 }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                  <div style="font-size:20px; font-weight:700;">Analytics</div>
+                  <div style="font-size:12px; color:#0B5C66; font-weight:600; background:#DEF3F5; padding:6px 12px; border-radius:6px;">Benchmark vs zone peers: On</div>
+                </div>
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Occupancy trend — 30 days</div>
+                    <div style="height:180px; border-radius:8px; background:repeating-linear-gradient(120deg,#F3FBFC,#F3FBFC 8px,#DEF3F5 8px,#DEF3F5 16px); display:flex; align-items:center; justify-content:center; font-family:monospace; font-size:11px; color:#0B5C66;">occupancy line chart</div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Admission source</div>
+                    <div style="height:180px; border-radius:8px; background:repeating-linear-gradient(120deg,#F3FBFC,#F3FBFC 8px,#DEF3F5 8px,#DEF3F5 16px); display:flex; align-items:center; justify-content:center; font-family:monospace; font-size:11px; color:#0B5C66;">breakdown chart</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-09 AI ASSISTANT -->
+              <sc-if value="{{ isP09 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">AI Assistant</div>
+                <div style="display:grid; grid-template-columns:1fr 1.4fr; gap:16px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Capacity forecast summary</div>
+                    <div style="font-size:13px; color:#4A5054; line-height:1.5;">ICU demand likely to rise ~18% over next 12h based on current admission velocity. Consider staffing review.</div>
+                    <div style="font-size:11px; font-weight:700; color:#8A5A00; background:#FBF0D9; padding:3px 9px; border-radius:4px; display:inline-block; margin-top:12px;">Advisory only — never a clinical decision</div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:10px;">
+                    <div style="align-self:flex-end; background:#DEF3F5; border-radius:10px 10px 2px 10px; padding:10px 14px; font-size:13px; max-width:80%;">What's my discharge forecast for tonight?</div>
+                    <div style="align-self:flex-start; background:#F2F4F5; border-radius:10px 10px 10px 2px; padding:10px 14px; font-size:13px; max-width:80%;">Based on historical patterns, expect 6–8 discharges between 6–10 PM, mostly General ward.</div>
+                    <div style="flex:1;"></div>
+                    <div style="height:40px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:13px; color:#7C8388;">Ask the AI Assistant…</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-10 USER MANAGEMENT -->
+              <sc-if value="{{ isP10 }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                  <div style="font-size:20px; font-weight:700;">User Management</div>
+                  <div style="height:36px; padding:0 16px; border-radius:8px; background:#0B5C66; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center;">+ Add user</div>
+                </div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                  <div style="display:grid; grid-template-columns:1.5fr 1.5fr 1fr 1fr; gap:10px; padding:12px 18px; background:#F2F4F5; font-size:11px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                    <div>Name</div><div>Role</div><div>Status</div><div>Last active</div>
+                  </div>
+                  <sc-for list="{{ staffUsers }}" as="u" hint-placeholder-count="4">
+                    <div style="display:grid; grid-template-columns:1.5fr 1.5fr 1fr 1fr; gap:10px; align-items:center; padding:13px 18px; border-top:1px solid #E7EBEC; font-size:13px;">
+                      <div style="font-weight:600;">{{ u.name }}</div><div style="color:#4A5054;">{{ u.role }}</div>
+                      <div><span style="font-size:11px; font-weight:700; color:{{ u.statusColor }}; background:{{ u.statusBg }}; padding:3px 8px; border-radius:4px;">{{ u.status }}</span></div>
+                      <div style="color:#7C8388; font-size:12px;">{{ u.lastActive }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-11 CONFIGURATION -->
+              <sc-if value="{{ isP11 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Configuration</div>
+                <div style="display:flex; flex-direction:column; gap:16px; max-width:640px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:12px;">Hold-expiry windows</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #E7EBEC;"><div style="font-size:13px;">General bed hold expiry</div><div style="font-size:13px; font-weight:600;">10 min</div></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0;"><div style="font-size:13px;">ICU/Ventilator hold expiry</div><div style="font-size:13px; font-weight:600;">5 min</div></div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:12px;">Notification preferences</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #E7EBEC;"><div style="font-size:13px;">In-portal + WhatsApp</div><div style="width:38px;height:22px;border-radius:999px;background:#0B5C66; position:relative;"><div style="width:18px;height:18px;border-radius:999px;background:#fff;position:absolute;right:2px;top:2px;"></div></div></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0;"><div style="font-size:13px;">SMS fallback</div><div style="width:38px;height:22px;border-radius:999px;background:#C7CDD0; position:relative;"><div style="width:18px;height:18px;border-radius:999px;background:#fff;position:absolute;left:2px;top:2px;"></div></div></div>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:12px;">HMS / LIS integration</div>
+                    <div style="font-size:12px; color:#7C8388; margin-bottom:6px;">Webhook credential</div>
+                    <div style="height:40px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:13px; color:#7C8388; margin-bottom:10px;">whk_live_••••••••••••4f2a</div>
+                    <div style="height:36px; width:140px; border-radius:6px; border:1px solid #0B5C66; color:#0B5C66; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;">Test connection</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-12 AUDIT LOGS -->
+              <sc-if value="{{ isP12 }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                  <div style="font-size:20px; font-weight:700;">Audit Logs</div>
+                  <div style="height:34px; padding:0 14px; border-radius:6px; border:1px solid #C7CDD0; font-size:12px; font-weight:700; color:#4A5054; display:flex; align-items:center;">Export CSV</div>
+                </div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow-x:auto;">
+                  <div style="display:grid; grid-template-columns:1.2fr 1fr 1.4fr 1.2fr 1fr; gap:10px; padding:8px 16px; background:#F2F4F5; font-size:10px; font-weight:700; text-transform:uppercase; color:#7C8388; min-width:760px;">
+                    <div>Timestamp</div><div>User</div><div>Action</div><div>Entity</div><div>Result</div>
+                  </div>
+                  <sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="5">
+                    <div style="display:grid; grid-template-columns:1.2fr 1fr 1.4fr 1.2fr 1fr; gap:10px; align-items:center; padding:10px 16px; border-top:1px solid #E7EBEC; font-size:12px; min-width:760px;">
+                      <div style="color:#7C8388;">{{ a.time }}</div><div>{{ a.user }}</div><div>{{ a.action }}</div><div style="color:#4A5054;">{{ a.entity }}</div>
+                      <div style="color:{{ a.resultColor }}; font-weight:600;">{{ a.result }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-13 DOCTOR AVAILABILITY -->
+              <sc-if value="{{ isP13 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Availability</div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:20px; margin-bottom:20px; max-width:640px;">
+                  <div style="font-size:12px; font-weight:600; color:#7C8388; text-transform:uppercase; margin-bottom:10px;">Real-time status</div>
+                  <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+                    <sc-for list="{{ doctorStatuses }}" as="s" hint-placeholder-count="4">
+                      <div style="height:52px; border-radius:8px; border:1.5px solid {{ s.border }}; background:{{ s.bg }}; color:{{ s.color }}; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; text-align:center;">{{ s.label }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Today's calendar slots</div>
+                <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:8px; max-width:760px;">
+                  <sc-for list="{{ doctorSlots }}" as="sl" hint-placeholder-count="12">
+                    <div style="height:44px; border-radius:8px; background:{{ sl.bg }}; color:{{ sl.color }}; font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center;">{{ sl.time }}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-14 FLEET ROSTER + MAP -->
+              <sc-if value="{{ isP14 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Fleet Roster + Map</div>
+                <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:16px;">
+                  <div style="height:340px; border-radius:12px; background:repeating-linear-gradient(135deg,#DEF3F5,#DEF3F5 10px,#F3FBFC 10px,#F3FBFC 20px); display:flex; align-items:center; justify-content:center; font-family:monospace; font-size:11px; color:#0B5C66;">fleet map — multi-pin roster view</div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding:10px 14px; background:#F2F4F5; font-size:10px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                      <div>Vehicle</div><div>Driver</div><div>Status</div>
+                    </div>
+                    <sc-for list="{{ fleetRoster }}" as="f" hint-placeholder-count="5">
+                      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; align-items:center; padding:11px 14px; border-top:1px solid #E7EBEC; font-size:12px;">
+                        <div style="font-weight:600;">{{ f.vehicle }}</div><div>{{ f.driver }}</div>
+                        <div><span style="font-size:11px; font-weight:700; color:{{ f.statusColor }}; background:{{ f.statusBg }}; padding:3px 8px; border-radius:4px;">{{ f.status }}</span></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-15 MEDICINE STOCK UPDATE -->
+              <sc-if value="{{ isP15 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Medicine Stock Update</div>
+                <div style="height:40px; max-width:360px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:13px; color:#7C8388; margin-bottom:16px;">Search medicines…</div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                  <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr; gap:10px; padding:10px 16px; background:#F2F4F5; font-size:10px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                    <div>Medicine</div><div>Category</div><div>Stock</div><div>Flag</div>
+                  </div>
+                  <sc-for list="{{ pharmacyStock }}" as="m" hint-placeholder-count="5">
+                    <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr; gap:10px; align-items:center; padding:12px 16px; border-top:1px solid #E7EBEC; font-size:13px;">
+                      <div style="font-weight:600;">{{ m.name }}</div><div style="color:#4A5054;">{{ m.category }}</div>
+                      <div style="display:flex; align-items:center; gap:6px;"><div style="width:22px;height:22px;border-radius:5px;background:#F2F4F5;display:flex;align-items:center;justify-content:center;font-weight:700;">–</div><div style="font-weight:700; width:26px; text-align:center;">{{ m.stock }}</div><div style="width:22px;height:22px;border-radius:5px;background:#F2F4F5;display:flex;align-items:center;justify-content:center;font-weight:700;">+</div></div>
+                      <div style="font-size:11px; font-weight:700; color:{{ m.flagColor }};">{{ m.flag }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-16 BLOOD PRE-ALERT QUEUE -->
+              <sc-if value="{{ isP16 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Blood Pre-Alert Queue</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#0B5C66; text-transform:uppercase; margin-bottom:8px;">AI Pre-Alerts</div>
+                    <sc-for list="{{ bloodPreAlerts }}" as="b" hint-placeholder-count="2">
+                      <div style="background:#fff; border:1px solid #E7EBEC; border-radius:10px; padding:14px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><div style="font-size:13px; font-weight:700;">{{ b.group }} · {{ b.units }} units</div><div style="font-size:11px; font-weight:700; color:#8A5A00;">Proactive</div></div>
+                        <div style="font-size:12px; color:#7C8388;">{{ b.reason }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#C62E2E; text-transform:uppercase; margin-bottom:8px;">Explicit Requests</div>
+                    <sc-for list="{{ bloodRequests }}" as="b" hint-placeholder-count="2">
+                      <div style="background:#fff; border:1px solid #E7EBEC; border-radius:10px; padding:14px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><div style="font-size:13px; font-weight:700;">{{ b.group }} · {{ b.units }} units</div><div style="font-size:11px; font-weight:700; color:#C62E2E;">{{ b.urgency }}</div></div>
+                        <div style="font-size:12px; color:#7C8388;">{{ b.reason }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-17 RESULT UPLOAD -->
+              <sc-if value="{{ isP17 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Result Upload</div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                  <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px; padding:10px 16px; background:#F2F4F5; font-size:10px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                    <div>Test</div><div>Ordered by</div><div>Status</div><div>Action</div>
+                  </div>
+                  <sc-for list="{{ diagResults }}" as="d" hint-placeholder-count="4">
+                    <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px; align-items:center; padding:12px 16px; border-top:1px solid #E7EBEC; font-size:13px;">
+                      <div style="font-weight:600;">{{ d.test }}</div><div style="color:#4A5054;">{{ d.orderedBy }}</div>
+                      <div><span style="font-size:11px; font-weight:700; color:{{ d.statusColor }}; background:{{ d.statusBg }}; padding:3px 8px; border-radius:4px;">{{ d.status }}</span></div>
+                      <div style="font-size:12px; font-weight:700; color:#0B5C66;">{{ d.actionLabel }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- P-18 PRE-AUTH REVIEW QUEUE -->
+              <sc-if value="{{ isP18 }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:20px; font-weight:700; margin-bottom:16px;">Pre-Auth Review Queue</div>
+                <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px;">
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                    <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:10px; padding:10px 16px; background:#F2F4F5; font-size:10px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                      <div>Case / Procedure</div><div>Amount</div><div>Status</div>
+                    </div>
+                    <sc-for list="{{ preAuthQueue }}" as="p" hint-placeholder-count="3">
+                      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:10px; align-items:center; padding:12px 16px; border-top:1px solid #E7EBEC; font-size:13px;">
+                        <div><div style="font-weight:600;">{{ p.caseName }}</div><div style="font-size:11px; color:#7C8388;">{{ p.procedure }}</div></div>
+                        <div style="font-weight:600;">{{ p.amount }}</div>
+                        <div><span style="font-size:11px; font-weight:700; color:{{ p.statusColor }}; background:{{ p.statusBg }}; padding:3px 8px; border-radius:4px;">{{ p.status }}</span></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; padding:18px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:12px;">Review — CASE-77410</div>
+                    <div style="font-size:12px; color:#7C8388; margin-bottom:14px;">Cardiac catheterization · ₹1,85,000 requested</div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                      <div style="height:38px; border-radius:8px; background:#1E9E5C; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">Approve</div>
+                      <div style="height:38px; border-radius:8px; border:1px solid #D98C0E; color:#8A5A00; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">Partially approve</div>
+                      <div style="height:38px; border-radius:8px; border:1px solid #C7CDD0; color:#4A5054; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">Request more info</div>
+                      <div style="height:38px; border-radius:8px; border:1px solid #C62E2E; color:#C62E2E; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">Deny</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- P-19 NETWORK MAPPING MANAGEMENT -->
+              <sc-if value="{{ isP19 }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                  <div style="font-size:20px; font-weight:700;">Network Mapping Management</div>
+                  <div style="height:38px; max-width:220px; border:1px solid #C7CDD0; border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:12px; color:#7C8388;">Filter by zone…</div>
+                </div>
+                <div style="background:#fff; border:1px solid #E7EBEC; border-radius:12px; overflow:hidden;">
+                  <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr; gap:10px; padding:10px 16px; background:#F2F4F5; font-size:10px; font-weight:700; text-transform:uppercase; color:#7C8388;">
+                    <div>Hospital</div><div>Zone</div><div>Network status</div><div>Action</div>
+                  </div>
+                  <sc-for list="{{ networkRows }}" as="n" hint-placeholder-count="4">
+                    <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr; gap:10px; align-items:center; padding:12px 16px; border-top:1px solid #E7EBEC; font-size:13px;">
+                      <div style="font-weight:600;">{{ n.hospital }}</div><div style="color:#4A5054;">{{ n.zone }}</div>
+                      <div><span style="font-size:11px; font-weight:700; color:{{ n.statusColor }}; background:{{ n.statusBg }}; padding:3px 8px; border-radius:4px;">{{ n.status }}</span></div>
+                      <div style="font-size:12px; font-weight:700; color:#0B5C66;">Manage</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = { screen: 'P02' };
+
+  select(id) { this.setState({ screen: id }); }
+
+  renderVals() {
+    const s = this.state.screen;
+    const meta = {
+      'P01': { title:'Portal Login', ref:'Part I7', portal:null, slug:'login' },
+      'P02': { title:'Dashboard', ref:'F2, FR-HOSP-003 (Hospital exemplar)', portal:'Hospital Portal', slug:'dashboard' },
+      'P03': { title:'Operational Data Update', ref:'FR-HOSP-001 / FR-BED-001', portal:'Hospital Portal', slug:'beds/update' },
+      'P04': { title:'Incoming Patients / Booking Queue', ref:'FR-HOSP-001', portal:'Hospital Portal', slug:'queue' },
+      'P05': { title:'ICU/Vent Clinical Acknowledgment', ref:'FR-HOSP-002, BR-04', portal:'Hospital Portal', slug:'clinical-ack' },
+      'P06': { title:'Case Management', ref:'F2 (scoped view)', portal:'Hospital Portal', slug:'cases' },
+      'P07': { title:'Reports', ref:'F2, F3.5', portal:'Hospital Portal', slug:'reports' },
+      'P08': { title:'Analytics', ref:'F2, G12', portal:'Hospital Portal', slug:'analytics' },
+      'P09': { title:'AI Assistant', ref:'F2, §A4', portal:'Hospital Portal', slug:'ai-assistant' },
+      'P10': { title:'User Management', ref:'F2, F3.6', portal:'Hospital Portal', slug:'users' },
+      'P11': { title:'Configuration', ref:'F2, G16', portal:'Hospital Portal', slug:'config' },
+      'P12': { title:'Audit Logs', ref:'F2, GT-06', portal:'Hospital Portal', slug:'audit' },
+      'P13': { title:'Doctor Availability Toggle', ref:'FR-DOCP-001', portal:'Doctor Portal', slug:'availability' },
+      'P14': { title:'Fleet Roster + Map', ref:'FR-AMBP-001', portal:'Ambulance Operator Portal', slug:'fleet' },
+      'P15': { title:'Medicine Stock Update', ref:'FR-PHRP-001', portal:'Pharmacy Portal', slug:'stock' },
+      'P16': { title:'Blood Pre-Alert Queue', ref:'FR-BLDP-001', portal:'Blood Bank Portal', slug:'pre-alerts' },
+      'P17': { title:'Result Upload', ref:'FR-DIAGP-001', portal:'Diagnostic Center Portal', slug:'results' },
+      'P18': { title:'Pre-Auth Review Queue', ref:'FR-INSP-001', portal:'Insurance Portal', slug:'pre-auth' },
+      'P19': { title:'Network Mapping Management', ref:'§F9.3', portal:'Insurance Portal', slug:'network' },
+    };
+    const m = meta[s];
+
+    const navGroupsRaw = [
+      { title:'Access', items:[['P01','Portal Login']] },
+      { title:'Hospital Portal — Core Shell', items:[
+        ['P02','Dashboard'],['P03','Operational Data Update (Beds)'],['P04','Incoming Patients / Booking Queue'],
+        ['P05','ICU/Vent Clinical Acknowledgment'],['P06','Case Management'],['P07','Reports'],['P08','Analytics'],
+        ['P09','AI Assistant'],['P10','User Management'],['P11','Configuration'],['P12','Audit Logs'],
+      ]},
+      { title:'Doctor Portal', items:[['P13','Availability Toggle']] },
+      { title:'Ambulance Operator Portal', items:[['P14','Fleet Roster + Map']] },
+      { title:'Pharmacy Portal', items:[['P15','Medicine Stock Update']] },
+      { title:'Blood Bank Portal', items:[['P16','Blood Pre-Alert Queue']] },
+      { title:'Diagnostic Center Portal', items:[['P17','Result Upload']] },
+      { title:'Insurance Portal', items:[['P18','Pre-Auth Review Queue'],['P19','Network Mapping Management']] },
+    ];
+    const navGroups = navGroupsRaw.map(g => ({
+      title: g.title,
+      items: g.items.map(([id,label]) => {
+        const active = id === s;
+        return { id: id.replace('P','P-'), label, onClick: () => this.select(id),
+          bg: active ? '#DEF3F5' : 'transparent', idColor: active ? '#0B5C66' : '#7C8388',
+          textColor: active ? '#0B5C66' : '#1A1D1F', weight: active ? 600 : 400 };
+      })
+    }));
+
+    const capabilities = ['Dashboard','Operational Data Updates','Availability Management','Booking Management','Case Management','Notifications','Reports','Analytics','AI Assistant','User Management','Configuration','Audit Logs'];
+    const activeCapIdx = { P02:0,P03:1,P04:3,P05:3,P06:4,P07:6,P08:7,P09:8,P10:9,P11:10,P12:11,P13:2,P14:1,P15:1,P16:3,P17:1,P18:3,P19:10 }[s];
+    const shellNavItems = capabilities.map((label,i) => {
+      const active = i === activeCapIdx;
+      return { label, bg: active ? 'rgba(255,255,255,0.14)' : 'transparent', color: active ? '#fff' : '#B7D9DD', weight: active ? 700 : 500 };
+    });
+
+    const portalChoices = ['Hospital','Doctor','Ambulance Operator','Pharmacy','Blood Bank','Diagnostic Center','Insurance'].map((label,i) => ({
+      label, border: i===0 ? '#0B5C66' : '#E7EBEC', bg: i===0 ? '#DEF3F5' : '#F2F4F5', color: i===0 ? '#0B5C66' : '#4A5054'
+    }));
+
+    const orgName = { 'Hospital Portal':'Apollo Hospital, Bannerghatta Road', 'Doctor Portal':'Dr. Meera Nair', 'Ambulance Operator Portal':'Rapid Response Fleet Services',
+      'Pharmacy Portal':'MedPlus Pharmacy, Koramangala', 'Blood Bank Portal':'Rotary Blood Bank, Bengaluru', 'Diagnostic Center Portal':'SRL Diagnostics, HSR Layout',
+      'Insurance Portal':'Star Health Insurance' }[m.portal] || '';
+
+    return {
+      navGroups,
+      currentTitle: m.title, currentId: s.replace('P','P-'), currentRef: m.ref, currentSlug: m.slug,
+      portalName: m.portal, orgName,
+      isP01: s==='P01', isP02: s==='P02', isP03: s==='P03', isP04: s==='P04', isP05: s==='P05',
+      isP06: s==='P06', isP07: s==='P07', isP08: s==='P08', isP09: s==='P09', isP10: s==='P10',
+      isP11: s==='P11', isP12: s==='P12', isP13: s==='P13', isP14: s==='P14', isP15: s==='P15',
+      isP16: s==='P16', isP17: s==='P17', isP18: s==='P18', isP19: s==='P19',
+      showShell: s !== 'P01',
+      shellNavItems, portalChoices,
+
+      dashQueue: [
+        { name:'CASE-88213 · Critical', type:'Ambulance handoff', color:'#B3261E' },
+        { name:'CASE-88190 · Urgent', type:'ICU bed hold', color:'#D9631E' },
+        { name:'CASE-88177 · Moderate', type:'General bed hold', color:'#D98C0E' },
+      ],
+      bedCategories: [
+        { name:'General', total:60, available:12, occupied:48 },
+        { name:'ICU', total:20, available:3, occupied:17 },
+        { name:'Ventilator', total:8, available:1, occupied:7 },
+        { name:'NICU', total:10, available:4, occupied:6 },
+        { name:'Isolation', total:6, available:2, occupied:4 },
+        { name:'Maternity', total:16, available:5, occupied:11 },
+      ],
+      bookingQueue: [
+        { severity:'CRITICAL', sevColor:'#B3261E', caseName:'CASE-88213', type:'Ambulance handoff', category:'ICU' },
+        { severity:'URGENT', sevColor:'#D9631E', caseName:'CASE-88190', type:'Bed hold', category:'ICU' },
+        { severity:'MODERATE', sevColor:'#D98C0E', caseName:'CASE-88177', type:'Bed hold', category:'General' },
+        { severity:'ROUTINE', sevColor:'#3E7C8A', caseName:'CASE-88101', type:'Bed hold', category:'Maternity' },
+      ],
+      clinicalAcks: [
+        { caseName:'CASE-88213', category:'ICU', clinician:'S. Rao' },
+        { caseName:'CASE-88190', category:'Ventilator', clinician:'A. Iyer' },
+      ],
+      scopedCases: [
+        { name:'CASE-88213', severity:'CRITICAL', sevColor:'#B3261E', summary:'Ambulance en route, ICU hold pending', bg:'#F3FBFC' },
+        { name:'CASE-88190', severity:'URGENT', sevColor:'#D9631E', summary:'Ventilator hold — clinical ack required', bg:'#fff' },
+        { name:'CASE-88101', severity:'ROUTINE', sevColor:'#3E7C8A', summary:'Maternity bed confirmed', bg:'#fff' },
+      ],
+      scopedTimeline: [
+        { time:'12:41 PM', text:'Ambulance arrival confirmed at ER', color:'#0E6B3A' },
+        { time:'12:22 PM', text:'Bed hold placed — ICU category', color:'#0B5C66' },
+        { time:'12:14 PM', text:'Triage handoff received from Ambulance module', color:'#D98C0E' },
+        { time:'12:11 PM', text:'Case created — Critical severity', color:'#B3261E' },
+      ],
+      reportCatalogue: [
+        { name:'SLA Compliance', desc:'Bed confirmation & clinical ack turnaround vs. target windows.' },
+        { name:'NABH Occupancy/Turnover', desc:'Audit-ready occupancy and turnover report for NABH review.' },
+        { name:'Insurance Cashless Conversion', desc:'Pre-auth to cashless-admission conversion rate.' },
+      ],
+      recentReports: [
+        { name:'SLA Compliance — June 2026', date:'Jul 01, 2026' },
+        { name:'NABH Occupancy — Q2 2026', date:'Jul 05, 2026' },
+        { name:'Cashless Conversion — June 2026', date:'Jul 02, 2026' },
+      ],
+      staffUsers: [
+        { name:'Anjali Sharma', role:'Hospital Administrator', status:'Active', statusColor:'#0E6B3A', statusBg:'#DFF5E9', lastActive:'Just now' },
+        { name:'Ravi Kumar', role:'Admissions Staff', status:'Active', statusColor:'#0E6B3A', statusBg:'#DFF5E9', lastActive:'12 min ago' },
+        { name:'Dr. S. Rao', role:'Clinical Lead', status:'Active', statusColor:'#0E6B3A', statusBg:'#DFF5E9', lastActive:'1 hr ago' },
+        { name:'M. Prakash', role:'Finance/Insurance Desk', status:'Invited', statusColor:'#8A5A00', statusBg:'#FBF0D9', lastActive:'—' },
+      ],
+      auditRows: [
+        { time:'12:41:03 PM', user:'R. Kumar', action:'Confirmed bed hold', entity:'CASE-88213', result:'Success', resultColor:'#0E6B3A' },
+        { time:'12:22:41 PM', user:'System', action:'Bed hold created', entity:'CASE-88213', result:'Success', resultColor:'#0E6B3A' },
+        { time:'11:58:10 AM', user:'Dr. S. Rao', action:'Clinical acknowledgment', entity:'CASE-88190', result:'Success', resultColor:'#0E6B3A' },
+        { time:'11:40:22 AM', user:'A. Sharma', action:'Updated bed inventory', entity:'General ward', result:'Success', resultColor:'#0E6B3A' },
+        { time:'10:15:55 AM', user:'Unknown', action:'Failed login attempt', entity:'Portal auth', result:'Blocked', resultColor:'#C62E2E' },
+      ],
+      doctorStatuses: [
+        { label:'Available Now', border:'#1E9E5C', bg:'#DFF5E9', color:'#0E6B3A' },
+        { label:'With Patient', border:'#D98C0E', bg:'#FBF0D9', color:'#8A5A00' },
+        { label:'In Surgery', border:'#C7CDD0', bg:'#F2F4F5', color:'#4A5054' },
+        { label:'Off Duty', border:'#C7CDD0', bg:'#F2F4F5', color:'#4A5054' },
+      ],
+      doctorSlots: Array.from({length:12}).map((_,i) => {
+        const busy = [2,3,7].includes(i);
+        return { time: `${9+Math.floor(i/2)}:${i%2?'30':'00'}`, bg: busy ? '#FBE3E3' : '#DFF5E9', color: busy ? '#8C1D1D' : '#0E6B3A' };
+      }),
+      fleetRoster: [
+        { vehicle:'KA-01 AB 4521', driver:'Suresh M.', status:'En route', statusColor:'#8A5A00', statusBg:'#FBF0D9' },
+        { vehicle:'KA-01 AB 3390', driver:'Naveen K.', status:'On-duty', statusColor:'#0E6B3A', statusBg:'#DFF5E9' },
+        { vehicle:'KA-01 AB 7712', driver:'Farid A.', status:'On-duty', statusColor:'#0E6B3A', statusBg:'#DFF5E9' },
+        { vehicle:'KA-01 AB 1140', driver:'—', status:'Off-duty', statusColor:'#4A5054', statusBg:'#F2F4F5' },
+        { vehicle:'KA-01 AB 9902', driver:'Deepak S.', status:'On-duty', statusColor:'#0E6B3A', statusBg:'#DFF5E9' },
+      ],
+      pharmacyStock: [
+        { name:'Paracetamol 500mg', category:'Analgesic', stock:1200, flag:'—', flagColor:'#7C8388' },
+        { name:'Amoxicillin 250mg', category:'Antibiotic', stock:340, flagColor:'#7C8388', flag:'—' },
+        { name:'Morphine Sulfate 10mg', category:'Opioid analgesic', stock:18, flag:'Controlled — routed to regulatory workflow', flagColor:'#C62E2E' },
+        { name:'Insulin Glargine', category:'Antidiabetic', stock:56, flag:'—', flagColor:'#7C8388' },
+        { name:'ORS Sachets', category:'Rehydration', stock:800, flag:'—', flagColor:'#7C8388' },
+      ],
+      bloodPreAlerts: [
+        { group:'O-negative', units:4, reason:'AI forecast — trauma admission pattern rising this week' },
+        { group:'B-positive', units:2, reason:'AI forecast — scheduled surgery volume above baseline' },
+      ],
+      bloodRequests: [
+        { group:'A-positive', units:3, urgency:'Urgent', reason:'Linked to CASE-88213 — active transfusion need' },
+        { group:'AB-negative', units:1, urgency:'Routine', reason:'Scheduled surgery reserve request' },
+      ],
+      diagResults: [
+        { test:'CBC — Complete Blood Count', orderedBy:'Apollo Hospital', status:'Awaiting upload', statusColor:'#8A5A00', statusBg:'#FBF0D9', actionLabel:'Upload result' },
+        { test:'CT Chest, Contrast', orderedBy:'Fortis Hospital', status:'Awaiting upload', statusColor:'#8A5A00', statusBg:'#FBF0D9', actionLabel:'Upload result' },
+        { test:'Troponin-I', orderedBy:'Apollo Hospital', status:'Delivered', statusColor:'#0E6B3A', statusBg:'#DFF5E9', actionLabel:'View' },
+        { test:'Lipid Profile', orderedBy:'Narayana Health', status:'Awaiting upload', statusColor:'#8A5A00', statusBg:'#FBF0D9', actionLabel:'Upload result' },
+      ],
+      preAuthQueue: [
+        { caseName:'CASE-77410', procedure:'Cardiac catheterization', amount:'₹1,85,000', status:'Pending review', statusColor:'#8A5A00', statusBg:'#FBF0D9' },
+        { caseName:'CASE-77388', procedure:'Appendectomy', amount:'₹62,000', status:'Approved', statusColor:'#0E6B3A', statusBg:'#DFF5E9' },
+        { caseName:'CASE-77350', procedure:'Dialysis — 3 sessions', amount:'₹24,500', status:'More info requested', statusColor:'#4A5054', statusBg:'#F2F4F5' },
+      ],
+      networkRows: [
+        { hospital:'Apollo Hospital, Bannerghatta Road', zone:'South Bengaluru', status:'In-Network', statusColor:'#0E6B3A', statusBg:'#DFF5E9' },
+        { hospital:'Fortis Hospital, Bommasandra', zone:'South Bengaluru', status:'In-Network', statusColor:'#0E6B3A', statusBg:'#DFF5E9' },
+        { hospital:'Narayana Health, Hosur Road', zone:'South Bengaluru', status:'Pending', statusColor:'#8A5A00', statusBg:'#FBF0D9' },
+        { hospital:'Manipal Hospital, Whitefield', zone:'East Bengaluru', status:'Out-of-Network', statusColor:'#8C1D1D', statusBg:'#FBE3E3' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

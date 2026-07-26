@@ -1,0 +1,648 @@
+// Schema-per-module per PRD M15/M23. Migration tool: Prisma Migrate (Decision Log DL-002).
+// Phase 1 — Foundation: Case/Timeline (core), generic ResourceHold (resource_coordination),
+// audit log (shared_services). No cross-schema hard foreign keys (M23) — cross-module
+// references (e.g. ResourceHold.caseId) are validated at the application layer only.
+//
+// Field shapes below are taken directly from the PRD's `HealthcareCase` (Part A2) and
+// `ResourceHold` (Appendix C2) definitions — see Decision Log DL-006 for the Session 4
+// correction that aligned these to the PRD verbatim after Session 3 shipped a
+// simplified first cut.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["core", "resource_coordination", "shared_services", "admin", "beds", "ambulance", "pharmacy", "blood", "doctors", "diagnostics", "insurance"]
+}
+
+// ---------------------------------------------------------------------------
+// core — Case Engine + Timeline (GT-01/GT-02, PRD Part A2/A3.2)
+// ---------------------------------------------------------------------------
+
+model Case {
+  id     String @id @default(uuid())
+  // Immutable, human-readable identifier per PRD Part A2 (e.g. HCC-2026-0000481).
+  // Generation scheme is a Phase 1 placeholder (year + sequence, no state code —
+  // the PRD doesn't specify the state-code derivation rule) — see DL-006.
+  caseNumber String @unique @map("case_number")
+
+  caseType String  @default("EMERGENCY") @map("case_type") // EMERGENCY | PLANNED | CHRONIC_MANAGEMENT
+  status   String  @default("INITIATED") // INITIATED | IN_PROGRESS | STABILIZED | RESOLVED | CLOSED | CANCELLED
+  severity String? // CRITICAL | URGENT | MODERATE | ROUTINE — set once AI/triage classifies it
+
+  primaryPatientId String? @map("primary_patient_id")
+  initiatorId      String  @map("initiator_id")
+
+  // { lat, lng, address, geofenceZone } — kept as JSON since shape varies by case_type
+  // and isn't a queryable column in Phase 1.
+  location Json?
+
+  goldenHourStartedAt      DateTime? @map("golden_hour_started_at")
+  goldenHourTargetDeadline DateTime? @map("golden_hour_target_deadline")
+
+  // Revocable-artifact consent grants (Part I1) scoped to this case — full model
+  // arrives with Phase 2's /shared-services/consent; JSON placeholder until then.
+  consentScope Json? @map("consent_scope")
+
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  timelineEvents CaseTimelineEvent[]
+
+  // Note: PRD's `linked_services` array is deliberately NOT duplicated as a stored
+  // column here — it's a read-model derived by querying ResourceHold WHERE case_id =
+  // this case's id, avoiding a second source of truth for the same relationship.
+  @@map("cases")
+  @@schema("core")
+}
+
+// Append-only: application code must never UPDATE or DELETE a row in this table (GT-02).
+model CaseTimelineEvent {
+  id        String   @id @default(uuid())
+  caseId    String   @map("case_id")
+  type      String
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  case Case @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("case_timeline_events")
+  @@schema("core")
+}
+
+// ---------------------------------------------------------------------------
+// resource_coordination — generic ResourceHold engine (Appendix C2 / M9)
+// ---------------------------------------------------------------------------
+
+// One row per coordinated resource unit's total capacity. Every module (ambulance,
+// beds, blood units, ...) configures this generic shape rather than reimplementing
+// its own capacity/hold table (M9). Not a PRD-named entity — an implementation
+// detail needed to make Appendix C2's "atomic-decrement pattern" enforceable via
+// `SELECT ... FOR UPDATE` regardless of which module is configuring it.
+model ResourceCapacity {
+  id              String   @id @default(uuid())
+  resourceType    String   @map("resource_type")
+  resourceOwnerId String   @map("resource_owner_id")
+  capacity        Int
+  version         Int      @default(1)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([resourceType, resourceOwnerId])
+  @@map("resource_capacities")
+  @@schema("resource_coordination")
+}
+
+// Matches PRD Appendix C2 verbatim: `{ hold_id, case_id, resource_type,
+// resource_owner_id, status, held_at, expires_at, confirmed_at, requires_secondary_ack }`.
+model ResourceHold {
+  id                   String    @id @default(uuid())
+  caseId               String?   @map("case_id")
+  resourceType         String    @map("resource_type")
+  resourceOwnerId      String    @map("resource_owner_id")
+  status               String    @default("PENDING") // PENDING | CONFIRMED | RELEASED | EXPIRED
+  heldAt               DateTime  @default(now()) @map("held_at")
+  expiresAt            DateTime  @map("expires_at")
+  confirmedAt          DateTime? @map("confirmed_at")
+  requiresSecondaryAck Boolean   @default(false) @map("requires_secondary_ack")
+  version              Int       @default(1)
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([resourceType, resourceOwnerId, status])
+  @@map("resource_holds")
+  @@schema("resource_coordination")
+}
+
+// ---------------------------------------------------------------------------
+// shared_services — audit (GT-06/GT-07)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actor      String
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("audit_log")
+  @@schema("shared_services")
+}
+
+// ---------------------------------------------------------------------------
+// shared_services — consent (Part I1: "one service, many purpose-scoped consumers")
+// ---------------------------------------------------------------------------
+
+// Scoped, revocable, auditable consent artifact. Not given a literal field-level
+// schema in the PRD (unlike Case/ResourceHold) — I1 describes it narratively as
+// "scoped, revocable, auditable consent artifacts" issued per purpose; this shape is
+// this session's operationalization of that description, flagged here rather than
+// presented as PRD-verbatim.
+model ConsentGrant {
+  id String @id @default(uuid())
+
+  caseId    String? @map("case_id") // nullable: not every consent purpose is case-scoped (e.g. ABDM linkage, H5)
+  granterId String  @map("granter_id") // the citizen/patient granting consent
+  granteeId String  @map("grantee_id") // the provider/insurer/party being granted access
+  purpose   String // e.g. CASE_DATA_SHARING, INSURANCE_PREAUTH, REMOTE_ASSIST_SESSION, ABDM_RECORD_RETRIEVAL
+
+  scope Json? // purpose-specific detail (e.g. which record fields, which session)
+
+  grantedAt DateTime  @default(now()) @map("granted_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([granterId, granteeId, purpose])
+  @@index([caseId])
+  @@map("consent_grants")
+  @@schema("shared_services")
+}
+
+// ---------------------------------------------------------------------------
+// admin — Provider Onboarding & Verification (Part G4), Console User Mgmt (Part G9)
+// Phase 3 minimal onboarding slice only — the rest of Admin Console (G5-G17) is
+// deferred and non-blocking per the Implementation Strategy.
+// ---------------------------------------------------------------------------
+
+// FR-ADM-PRV-001: one application per provider going through the 5-stage onboarding
+// workflow. `status` is a denormalized convenience field kept in sync with the
+// current furthest-completed stage — the stages themselves (ProviderOnboardingStage)
+// are the source of truth for the zero-tolerance go-live gate (UX Spec A-04).
+model ProviderApplication {
+  id           String   @id @default(uuid())
+  providerType String   @map("provider_type") // HOSPITAL | DOCTOR | AMBULANCE_OPERATOR | PHARMACY | BLOOD_BANK | DIAGNOSTIC_CENTER | INSURER
+  legalName    String   @map("legal_name")
+  status       String   @default("APPLICATION_INTAKE") // mirrors the furthest-reached OnboardingStage
+  version      Int      @default(1)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  stages ProviderOnboardingStage[]
+
+  @@map("provider_applications")
+  @@schema("admin")
+}
+
+// One row per stage per application, per FR-ADM-PRV-001's Main Flow:
+// Application intake → Credential verification → Integration test → Go-live approval
+// → Portal access activated. All 5 rows are created (PENDING) when the application
+// is created, so "every mandatory stage logged complete" (A-04) can be verified by a
+// simple query rather than inferred from absence.
+model ProviderOnboardingStage {
+  id            String    @id @default(uuid())
+  applicationId String    @map("application_id")
+  stage         String // APPLICATION_INTAKE | CREDENTIAL_VERIFICATION | INTEGRATION_TEST | GO_LIVE_APPROVAL | PORTAL_ACCESS_ACTIVATED
+  status        String    @default("PENDING") // PENDING | COMPLETE | REJECTED
+  reviewerId    String?   @map("reviewer_id")
+  notes         String?
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  application ProviderApplication @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, stage])
+  @@map("provider_onboarding_stages")
+  @@schema("admin")
+}
+
+// Part G9 minimal slice: enough to create internal Console roles. Not an
+// authentication identity itself — `firebaseUid` links to the Firebase user once
+// Phase 2's live auth verification is unblocked (DL-007); nullable until then.
+model ConsoleUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  role         String // SUPPORT_AGENT | CUSTOMER_SUCCESS_MANAGER | PROVIDER_ONBOARDING_SPECIALIST | TRUST_SAFETY_ANALYST | COMPLIANCE_OFFICER | PLATFORM_OPERATIONS_ENGINEER | CONSOLE_ADMINISTRATOR
+  firebaseUid  String?  @unique @map("firebase_uid")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("console_users")
+  @@schema("admin")
+}
+
+// G5 — Support Ticket Queue (A-06/A-07). Citizen + Provider support tickets.
+model SupportTicket {
+  id          String   @id @default(uuid())
+  ticketNumber String  @unique @map("ticket_number") // e.g. TCK-3390
+  requester   String
+  requesterType String @map("requester_type") // CITIZEN | PROVIDER
+  entityRef   String?  @map("entity_ref") // CASE-… / hospital name / ACC-…
+  subject     String
+  priority    String   @default("MED") // HIGH | MED | LOW
+  status      String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  assignedAgent String? @map("assigned_agent")
+  body        String?
+  internalNotes String? @map("internal_notes")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([status, priority])
+  @@map("support_tickets")
+  @@schema("admin")
+}
+
+// G7 — Issue Tracking Board (A-09). Platform-level issues (Kanban columns).
+model PlatformIssue {
+  id          String   @id @default(uuid())
+  issueNumber String   @unique @map("issue_number") // e.g. ISS-512
+  title       String
+  category    String   // PLATFORM_HEALTH | PROVIDER_SUPPORT | CITIZEN_SUPPORT | INSURANCE_INTEGRATION
+  status      String   @default("OPEN") // OPEN | IN_PROGRESS | BLOCKED | RESOLVED
+  severity    String   @default("MED") // HIGH | MED | LOW
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("platform_issues")
+  @@schema("admin")
+}
+
+// G15 — Feature Flags (A-18).
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String
+  enabled     Boolean  @default(false)
+  rolloutPercent Int   @default(0) @map("rollout_percent")
+  geography   String   @default("Not launched")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+  @@schema("admin")
+}
+
+// G16 — Platform Configuration key/value (A-18 config tab).
+model PlatformConfig {
+  id        String   @id @default(uuid())
+  groupKey  String   @map("group_key") // e.g. hold_expiry, staleness, sla
+  label     String
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([groupKey, label])
+  @@map("platform_config")
+  @@schema("admin")
+}
+
+// G3 — Citizen Onboarding Queue (A-03). Flagged citizen accounts needing review.
+model CitizenOnboardingFlag {
+  id          String   @id @default(uuid())
+  accountRef  String   @map("account_ref") // e.g. ACC-…
+  displayName String   @map("display_name")
+  issue       String   // DUPLICATE_ACCOUNT | FAMILY_LINKAGE | ABHA_MISMATCH | OTHER
+  issueLabel  String   @map("issue_label")
+  status      String   @default("PENDING") // PENDING | IN_REVIEW | RESOLVED
+  notes       String?
+  flaggedAt   DateTime @default(now()) @map("flagged_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([status, flaggedAt])
+  @@map("citizen_onboarding_flags")
+  @@schema("admin")
+}
+
+// G8 — Knowledge Base (A-11).
+model KnowledgeArticle {
+  id        String   @id @default(uuid())
+  title     String
+  category  String
+  body      String   @default("")
+  note      String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([category])
+  @@map("knowledge_articles")
+  @@schema("admin")
+}
+
+// G13 — Communication Center broadcasts (A-16). Fan-out may stay stubbed (M14).
+model Broadcast {
+  id        String   @id @default(uuid())
+  title     String
+  body      String
+  audience  String
+  channels  String[] // IN_APP | WHATSAPP | SMS
+  status    String   @default("DRAFT") // DRAFT | SENT
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("broadcasts")
+  @@schema("admin")
+}
+
+// G14 — AI Ops Assistant suggestions (A-17).
+model AiOpsSuggestion {
+  id         String   @id @default(uuid())
+  action     String
+  confidence Float
+  source     String
+  status     String   @default("PENDING") // PENDING | APPROVED | DISMISSED
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("ai_ops_suggestions")
+  @@schema("admin")
+}
+
+// ---------------------------------------------------------------------------
+// beds — Hospital Bed Inventory (Module 2 FR-BED-001, Phase 4)
+// ---------------------------------------------------------------------------
+
+// One row per (hospital_id, category) pair. `hospitalId` is an application-layer
+// reference to `admin.provider_applications.id` — no cross-schema hard FK per M23.
+// Categories per PRD §2.16: General/ICU/Ventilator/NICU/Isolation/Maternity.
+// `version` enables optimistic locking on concurrent count updates (M17 item 9).
+// `stalenessStatus` is managed by `InventoryStalenessCheckJob` per BR-03.
+model HospitalBedInventory {
+  id             String   @id @default(uuid())
+  hospitalId     String   @map("hospital_id")
+  category       String   // GENERAL | ICU | VENTILATOR | NICU | ISOLATION | MATERNITY
+  availableCount Int      @default(0) @map("available_count")
+  occupiedCount  Int      @default(0) @map("occupied_count")
+  totalCount     Int      @default(0) @map("total_count")
+  // FRESH | STALE — staleness per BR-03 (default threshold 6 hours, BED_STALE_THRESHOLD_HOURS)
+  stalenessStatus String  @default("FRESH") @map("staleness_status")
+  lastUpdatedAt  DateTime @default(now()) @map("last_updated_at")
+  lastUpdatedBy  String?  @map("last_updated_by") // actor uid (null for HMS webhook source)
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([hospitalId, category])
+  @@index([hospitalId])
+  @@index([stalenessStatus])
+  @@map("hospital_bed_inventory")
+  @@schema("beds")
+}
+
+// Hospital Registry — canonical geo-location for every onboarded hospital.
+// hospitalId matches the key used in HospitalBedInventory (app-layer join, no FK per M23).
+// TD-003: once populated, CitizenBedSearchService uses haversine formula to geo-sort results.
+model HospitalRegistry {
+  id           String   @id @default(uuid())
+  hospitalId   String   @unique @map("hospital_id")
+  name         String
+  address      String?
+  city         String?
+  state        String?
+  lat          Float
+  lng          Float
+  providerType String   @default("HOSPITAL") @map("provider_type")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([lat, lng])
+  @@index([hospitalId])
+  @@map("hospital_registry")
+  @@schema("beds")
+}
+
+// ---------------------------------------------------------------------------
+// ambulance — Ambulance drivers and dispatch requests (FR-AMB-001–FR-AMB-004, Phase 6)
+// No hard foreign key to core.cases (M23) — caseId is app-layer-validated only.
+// ---------------------------------------------------------------------------
+
+model AmbulanceDriver {
+  id          String    @id @default(uuid())
+  driverUid   String    @unique @map("driver_uid")  // Firebase UID of the driver citizen account
+  // Operator org that owns this vehicle (app-layer ref to provider_applications / session org id)
+  operatorId  String?   @map("operator_id")
+  displayName String?   @map("display_name")
+  vehicleReg  String    @map("vehicle_reg")
+  vehicleType String    @default("BASIC_LIFE_SUPPORT") @map("vehicle_type") // BASIC_LIFE_SUPPORT | ADVANCED_LIFE_SUPPORT | PATIENT_TRANSPORT
+  // AVAILABLE | EN_ROUTE | MAINTENANCE | OFF_DUTY — P-14 fleet roster status
+  fleetStatus String    @default("OFF_DUTY") @map("fleet_status")
+  isOnDuty    Boolean   @default(false) @map("is_on_duty")
+  lastLat     Float?    @map("last_lat")
+  lastLng     Float?    @map("last_lng")
+  lastPingAt  DateTime? @map("last_ping_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  requests AmbulanceRequest[]
+
+  @@index([isOnDuty])
+  @@index([operatorId])
+  @@map("ambulance_drivers")
+  @@schema("ambulance")
+}
+
+// BR-01 90s SLA, BR-03 20s per-driver sequential offer window (see AmbulanceOffer for offer log).
+model AmbulanceRequest {
+  id         String   @id @default(uuid())
+  caseId     String   @map("case_id")
+  driverId   String?  @map("driver_id")
+  status     String   @default("SEARCHING") @map("status")
+  // SEARCHING | MATCHED | EN_ROUTE_PICKUP | ARRIVED_PICKUP | EN_ROUTE_HOSPITAL | ARRIVED_HOSPITAL | COMPLETED | CANCELLED
+  pickupLat  Float?   @map("pickup_lat")
+  pickupLng  Float?   @map("pickup_lng")
+  severity   String   @default("MODERATE") @map("severity") // CRITICAL | URGENT | MODERATE | ROUTINE
+  version    Int      @default(1)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  driver   AmbulanceDriver?  @relation(fields: [driverId], references: [id])
+  offers   AmbulanceOffer[]
+
+  @@index([caseId])
+  @@index([status])
+  @@map("ambulance_requests")
+  @@schema("ambulance")
+}
+
+// BR-03: Each offer has a 20-second sequential window; driver must accept/decline
+// before the next driver is offered. Only one offer is PENDING per request at a time.
+model AmbulanceOffer {
+  id         String    @id @default(uuid())
+  requestId  String    @map("request_id")
+  driverId   String    @map("driver_id")
+  status     String    @default("PENDING") @map("status") // PENDING | ACCEPTED | DECLINED | EXPIRED
+  offeredAt  DateTime  @default(now()) @map("offered_at")
+  respondedAt DateTime? @map("responded_at")
+  expiresAt  DateTime  @map("expires_at")
+
+  request AmbulanceRequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId])
+  @@index([driverId])
+  @@map("ambulance_offers")
+  @@schema("ambulance")
+}
+
+// ---------------------------------------------------------------------------
+// pharmacy — Medicine stock (Module 5 FR-PHR-009 / FR-PHRP-001, Phase 10)
+// ---------------------------------------------------------------------------
+
+model PharmacyStock {
+  id                String   @id @default(uuid())
+  pharmacyId        String   @map("pharmacy_id")
+  medicineName      String   @map("medicine_name")
+  category          String
+  stockCount        Int      @default(0) @map("stock_count")
+  lowThreshold      Int      @default(10) @map("low_threshold")
+  criticalThreshold Int      @default(3) @map("critical_threshold")
+  lastUpdatedAt     DateTime @default(now()) @map("last_updated_at")
+  lastUpdatedBy     String?  @map("last_updated_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([pharmacyId, medicineName])
+  @@index([pharmacyId])
+  @@map("pharmacy_stock")
+  @@schema("pharmacy")
+}
+
+// ---------------------------------------------------------------------------
+// blood — Pre-alerts + component stock (Module 6 FR-BLD-001 / FR-BLDP-001)
+// ---------------------------------------------------------------------------
+
+model BloodPreAlert {
+  id           String   @id @default(uuid())
+  bloodBankId  String   @map("blood_bank_id")
+  bloodGroup   String   @map("blood_group") // O- | O+ | A+ | AB+ | B+ …
+  units        Int      @default(1)
+  // AI_PREALERT | EXPLICIT_REQUEST — P-16 two-column queue
+  sourceType   String   @map("source_type")
+  urgency      String   @default("ROUTINE") // CRITICAL | URGENT | ROUTINE | PROACTIVE
+  reason       String
+  caseId       String?  @map("case_id")
+  status       String   @default("OPEN") // OPEN | ACKNOWLEDGED | FULFILLED | DISMISSED
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([bloodBankId, status])
+  @@index([sourceType])
+  @@map("blood_pre_alerts")
+  @@schema("blood")
+}
+
+// Citizen blood-bank search inventory (FR-BLD-002)
+model BloodBankStock {
+  id          String   @id @default(uuid())
+  bloodBankId String   @map("blood_bank_id")
+  name        String
+  bloodGroup  String   @map("blood_group")
+  component   String   @default("WHOLE_BLOOD") // WHOLE_BLOOD | PLATELETS | PLASMA
+  unitsAvailable Int   @default(0) @map("units_available")
+  lat         Float?
+  lng         Float?
+  city        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([bloodBankId, bloodGroup, component])
+  @@index([bloodGroup])
+  @@map("blood_bank_stock")
+  @@schema("blood")
+}
+
+// Pharmacy registry for citizen search (Module 5) — stock rows join on pharmacyId
+model PharmacyRegistry {
+  id        String   @id @default(uuid())
+  pharmacyId String  @unique @map("pharmacy_id")
+  name      String
+  address   String?
+  city      String?
+  lat       Float?
+  lng       Float?
+  is24x7    Boolean  @default(false) @map("is_24x7")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("pharmacy_registry")
+  @@schema("pharmacy")
+}
+
+// ---------------------------------------------------------------------------
+// doctors — Module 3 FR-DOC search directory
+// ---------------------------------------------------------------------------
+
+model DoctorProfile {
+  id              String   @id @default(uuid())
+  name            String
+  specialty       String
+  hospitalName    String?  @map("hospital_name")
+  nextSlotAt      DateTime? @map("next_slot_at")
+  city            String?
+  lat             Float?
+  lng             Float?
+  isTeleconsult   Boolean  @default(false) @map("is_teleconsult")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([specialty])
+  @@map("doctor_profiles")
+  @@schema("doctors")
+}
+
+// ---------------------------------------------------------------------------
+// diagnostics — Module 8 FR-DIA search
+// ---------------------------------------------------------------------------
+
+model DiagnosticOffering {
+  id            String   @id @default(uuid())
+  centerName    String   @map("center_name")
+  testName      String   @map("test_name")
+  priceInr      Int      @map("price_inr")
+  nextSlotAt    DateTime? @map("next_slot_at")
+  city          String?
+  lat           Float?
+  lng           Float?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([testName])
+  @@map("diagnostic_offerings")
+  @@schema("diagnostics")
+}
+
+// ---------------------------------------------------------------------------
+// insurance — Module 7 FR-INS pre-auth tracking (C-24)
+// ---------------------------------------------------------------------------
+
+model InsurancePreAuth {
+  id            String   @id @default(uuid())
+  caseId        String?  @map("case_id")
+  insurerName   String   @map("insurer_name")
+  policyLast4   String?  @map("policy_last4")
+  hospitalName  String?  @map("hospital_name")
+  // SUBMITTED | UNDER_REVIEW | APPROVED | REJECTED
+  status        String   @default("SUBMITTED")
+  rejectionReason String? @map("rejection_reason")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([caseId])
+  @@map("insurance_pre_auths")
+  @@schema("insurance")
+}
+
+// Cancer centres (Module 9 FR-CAN-001) — modality searchable
+model CancerCenter {
+  id          String   @id @default(uuid())
+  name        String
+  modalities  String   // comma-separated: Radiation,Chemotherapy,Surgical Oncology,Palliative
+  city        String?
+  lat         Float?
+  lng         Float?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("cancer_centers")
+  @@schema("beds")
+}
