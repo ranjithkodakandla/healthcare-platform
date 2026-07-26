@@ -5,31 +5,32 @@ jest.mock('firebase-admin', () => {
   const verifyIdToken = jest.fn();
   const initializeApp = jest.fn(() => ({ name: 'app' }));
   const auth = jest.fn(() => ({ verifyIdToken }));
-  return {
-    __esModule: true,
-    default: {
-      initializeApp,
-      auth,
-      credential: {
-        cert: jest.fn(() => 'cert'),
-        applicationDefault: jest.fn(() => 'adc'),
-      },
-    },
+  const api = {
+    apps: [] as unknown[],
+    app: jest.fn(() => ({ name: 'app' })),
+    initializeApp,
+    auth,
     credential: {
       cert: jest.fn(() => 'cert'),
       applicationDefault: jest.fn(() => 'adc'),
     },
-    auth,
-    initializeApp,
+  };
+  return {
+    __esModule: true,
+    default: api,
+    ...api,
   };
 });
 
 import * as admin from 'firebase-admin';
 import { FirebaseAuthProvider } from './firebase-auth-provider';
+import { resetFirebaseAdminAppCache } from './firebase-admin.app';
 
 describe('FirebaseAuthProvider (unit)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetFirebaseAdminAppCache();
+    (admin as unknown as { apps: unknown[] }).apps = [];
   });
 
   it('throws without project id', async () => {

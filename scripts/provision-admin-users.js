@@ -26,7 +26,7 @@ if (fs.existsSync(envPath)) {
 const admin = require('firebase-admin');
 const { Client } = require('pg');
 
-const PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD || 'Password@01';
+const PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD;
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'sahyak';
 
 const USERS = [
@@ -36,10 +36,15 @@ const USERS = [
 ];
 
 async function main() {
+  if (!PASSWORD) {
+    throw new Error('Set ADMIN_BOOTSTRAP_PASSWORD before provisioning admin users');
+  }
   if (!admin.apps.length) {
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const credential =
-      sa && sa !== 'ADC' ? admin.credential.cert(JSON.parse(sa)) : admin.credential.applicationDefault();
+      sa && sa !== 'ADC'
+        ? admin.credential.cert(JSON.parse(sa))
+        : admin.credential.applicationDefault();
     admin.initializeApp({ credential, projectId: PROJECT_ID });
   }
 

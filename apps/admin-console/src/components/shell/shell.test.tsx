@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConsoleShell } from './ConsoleShell';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -51,6 +51,34 @@ describe('admin shell', () => {
     );
     expect(await screen.findByLabelText(/Open navigation menu/i)).toBeInTheDocument();
     expect(screen.getByText('Page')).toBeInTheDocument();
+  });
+
+  it('ConsoleShell opens and closes the navigation drawer', async () => {
+    render(
+      <ConsoleShell>
+        <div>Page</div>
+      </ConsoleShell>,
+    );
+    fireEvent.click(await screen.findByLabelText(/Open navigation menu/i));
+    expect(await screen.findByLabelText(/Close navigation/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Close menu/i));
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/Close navigation/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('ConsoleShell closes drawer on Escape', async () => {
+    render(
+      <ConsoleShell>
+        <div>Page</div>
+      </ConsoleShell>,
+    );
+    fireEvent.click(await screen.findByLabelText(/Open navigation menu/i));
+    expect(await screen.findByRole('dialog', { name: /Console navigation/i })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /Console navigation/i })).not.toBeInTheDocument();
+    });
   });
 });
 

@@ -20,7 +20,7 @@ const admin = require('firebase-admin');
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'sahyak';
 const HOSPITAL_ID = process.env.PROVIDER_HOSPITAL_ID || 'hosp-apollo-blr';
 const HOSPITAL_NAME = process.env.PROVIDER_HOSPITAL_NAME || 'Apollo Hospital (Bengaluru)';
-const PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD || 'Password@01';
+const PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD;
 
 const USERS = [
   { name: 'Ranjith', email: 'ranjith@sahyak.test' },
@@ -29,10 +29,15 @@ const USERS = [
 ];
 
 async function main() {
+  if (!PASSWORD) {
+    throw new Error('Set ADMIN_BOOTSTRAP_PASSWORD before provisioning hospital admins');
+  }
   if (!admin.apps.length) {
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const credential =
-      sa && sa !== 'ADC' ? admin.credential.cert(JSON.parse(sa)) : admin.credential.applicationDefault();
+      sa && sa !== 'ADC'
+        ? admin.credential.cert(JSON.parse(sa))
+        : admin.credential.applicationDefault();
     admin.initializeApp({ credential, projectId: PROJECT_ID });
   }
 

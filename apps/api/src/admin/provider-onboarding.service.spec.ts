@@ -47,7 +47,12 @@ describeDb('ProviderOnboardingService', () => {
     ];
 
     for (const stage of stages.slice(0, -1)) {
-      await service.completeStage({ applicationId: application.id, stage, reviewerId: 'reviewer-1' });
+      await service.completeStage({
+        applicationId: application.id,
+        stage,
+        reviewerId: 'reviewer-1',
+        checklistComplete: stage === OnboardingStage.CREDENTIAL_VERIFICATION ? true : undefined,
+      });
       expect(await service.isPortalLive(application.id)).toBe(false);
     }
 

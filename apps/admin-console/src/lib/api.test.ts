@@ -22,7 +22,24 @@ describe('adminApi', () => {
 
     await adminApi.platform.stats();
     await adminApi.platform.onboardingQueue();
+    await adminApi.providers.create({
+      providerType: 'HOSPITAL',
+      legalName: 'X',
+      city: 'Hyderabad',
+    });
+    await adminApi.providers.get('a');
     await adminApi.providers.approveStage('a', 'APPLICATION_INTAKE', 'r', 'n', true);
+    await adminApi.providers.reject('a', 'incomplete docs');
+    expect(adminApi.providers.documentUrl('a', 'nabh')).toContain('/documents/nabh');
+    await adminApi.providers.search('Apollo');
+    await adminApi.providers.search();
+    await adminApi.providers.getOrg('hosp-1');
+    await adminApi.providers.hospitalDashboard('hosp-1');
+    await adminApi.providers.hospitalBeds('hosp-1');
+    await adminApi.providers.updateHospitalBeds('hosp-1', [
+      { category: 'ICU', totalCount: 10, availableCount: 2 },
+    ]);
+    await adminApi.providers.hospitalIncomingQueue('hosp-1');
     await adminApi.users.list();
     await adminApi.users.create('agent@sahayak.test', 'SUPPORT_AGENT');
     await adminApi.support.listTickets({ requesterType: 'CITIZEN', q: 'x' });

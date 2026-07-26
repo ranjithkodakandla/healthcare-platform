@@ -6,7 +6,7 @@ let cached: admin.app.App | undefined;
 /** Shared Firebase Admin app (ADC or explicit SA JSON). */
 export function getFirebaseAdminApp(config: ConfigService): admin.app.App {
   if (cached) return cached;
-  if (admin.apps.length > 0) {
+  if ((admin.apps?.length ?? 0) > 0) {
     cached = admin.app();
     return cached;
   }
@@ -24,4 +24,9 @@ export function getFirebaseAdminApp(config: ConfigService): admin.app.App {
 
   cached = admin.initializeApp({ credential, projectId });
   return cached;
+}
+
+/** Test-only: clear memoized Admin app between unit cases. */
+export function resetFirebaseAdminAppCache(): void {
+  cached = undefined;
 }
