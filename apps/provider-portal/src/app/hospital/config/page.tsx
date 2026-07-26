@@ -1,7 +1,14 @@
-// P-11: Configuration — F2, G16. Hold-expiry windows, notification prefs, HMS/LIS webhook.
+'use client';
 
+// P-11: Configuration — F2, G16. Hold-expiry windows, notification prefs, HMS/LIS webhook.
+// Hold-expiry rows are now fetched from the real BR-02 config (severity-keyed:
+// CRITICAL/PLANNED), replacing the previous hardcoded, category-keyed mock values
+// (PROVIDER_UAT_REPORT.md Finding #7).
+
+import { useCallback, useEffect, useState } from 'react';
 import { CardPadded } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { getSession, providerApi } from '@/lib/api';
 
 function Toggle({ on }: { on: boolean }) {
   return (
@@ -12,20 +19,53 @@ function Toggle({ on }: { on: boolean }) {
 }
 
 export default function ConfigPage() {
+  const [holdExpiry, setHoldExpiry] = useState<Array<{ label: string; value: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const hospitalId = getSession()?.hospitalId;
+    if (!hospitalId) {
+      setError('Your session has expired. Please sign in again.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await providerApi.config.get(hospitalId);
+      setHoldExpiry(res.data.holdExpiry);
+    } catch {
+      setError('Failed to load configuration.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   return (
     <div>
       <h1 className="text-[20px] font-bold mb-4">Configuration</h1>
       <div className="flex flex-col gap-4 max-w-[640px]">
         <CardPadded>
-          <p className="text-[13px] font-bold mb-3">Hold-expiry windows</p>
-          <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid #E7EBEC' }}>
-            <p className="text-[13px]">General bed hold expiry</p>
-            <p className="text-[13px] font-semibold">10 min</p>
-          </div>
-          <div className="flex justify-between items-center py-2">
-            <p className="text-[13px]">ICU/Ventilator hold expiry</p>
-            <p className="text-[13px] font-semibold">5 min</p>
-          </div>
+          <p className="text-[13px] font-bold mb-3">Hold-expiry windows (BR-02)</p>
+          {loading ? (
+            <div className="h-10 rounded bg-gray-100 animate-pulse" />
+          ) : error ? (
+            <p className="text-[12px] font-semibold" style={{ color: '#C62E2E' }}>{error}</p>
+          ) : (
+            holdExpiry.map((row, idx) => (
+              <div
+                key={row.label}
+                className="flex justify-between items-center py-2"
+                style={idx < holdExpiry.length - 1 ? { borderBottom: '1px solid #E7EBEC' } : undefined}
+              >
+                <p className="text-[13px]">{row.label}</p>
+                <p className="text-[13px] font-semibold">{row.value}</p>
+              </div>
+            ))
+          )}
         </CardPadded>
 
         <CardPadded>

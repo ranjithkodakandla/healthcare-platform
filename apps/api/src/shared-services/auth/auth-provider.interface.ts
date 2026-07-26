@@ -1,4 +1,4 @@
-import { Role } from '@sahayak/shared-constants';
+import { ProviderType, Role } from '@sahayak/shared-constants';
 
 export interface AuthenticatedPrincipal {
   uid: string;
@@ -6,6 +6,7 @@ export interface AuthenticatedPrincipal {
   email?: string;
   role: Role;
   orgId?: string; // provider/admin org scoping (I7 ABAC)
+  providerType?: ProviderType; // which of the 7 provider portals this principal belongs to
 }
 
 // I7: one shared Authentication service behind this interface — Firebase Auth today

@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@sahayak/shared-constants';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { RolesGuard } from '../shared-services/auth/roles.guard';
+import { OrgScopeGuard } from '../shared-services/auth/org-scope.guard';
 import { Roles } from '../shared-services/auth/roles.decorator';
 import { CurrentUser } from '../shared-services/auth/current-user.decorator';
 import { ProviderSecondaryService } from './provider-secondary.service';
@@ -24,7 +25,7 @@ import { ProviderSecondaryService } from './provider-secondary.service';
 @ApiTags('Provider Secondary')
 @ApiBearerAuth()
 @Controller('v1/providers')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
 @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
 export class ProviderSecondaryController {
   constructor(private readonly secondary: ProviderSecondaryService) {}

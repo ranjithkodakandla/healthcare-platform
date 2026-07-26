@@ -91,6 +91,15 @@ describe('CaseService (unit)', () => {
     );
   });
 
+  it('getCaseSeverity returns the case severity, or null when the case is missing', async () => {
+    const { service, prisma } = build();
+    prisma.case.findUnique.mockResolvedValueOnce(created);
+    await expect(service.getCaseSeverity('case-1')).resolves.toBe(CaseSeverity.CRITICAL);
+
+    prisma.case.findUnique.mockResolvedValueOnce(null);
+    await expect(service.getCaseSeverity('missing')).resolves.toBeNull();
+  });
+
   it('appendTimelineEvent throws when case missing', async () => {
     const { service, prisma } = build();
     prisma.case.findUnique.mockResolvedValue(null);

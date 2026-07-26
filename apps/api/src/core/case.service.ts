@@ -176,6 +176,13 @@ export class CaseService {
     return `HCC-${year}-${nextval.toString().padStart(7, '0')}`;
   }
 
+  // BR-02: bed-hold expiry is keyed by case severity (CRITICAL vs PLANNED), not bed
+  // category — this is the read callers use to pick the right TTL bucket.
+  async getCaseSeverity(caseId: string): Promise<CaseSeverity | null> {
+    const kase = await this.prisma.case.findUnique({ where: { id: caseId }, select: { severity: true } });
+    return (kase?.severity as CaseSeverity | undefined) ?? null;
+  }
+
   async appendTimelineEvent(caseId: string, type: string, payload: Record<string, unknown>) {
     const kase = await this.prisma.case.findUnique({ where: { id: caseId } });
     if (!kase) {

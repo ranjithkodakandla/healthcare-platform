@@ -3,6 +3,9 @@ import { ExecutionContext } from '@nestjs/common';
 import { ProviderController } from './provider.controller';
 import { BedInventoryService } from '../modules/beds/bed-inventory.service';
 import { IncomingPatientsService, ClinicalAckService } from '../modules/beds/incoming-patients.service';
+import { ProviderUserService } from './provider-user.service';
+import { ProviderConfigService } from './provider-config.service';
+import { ProviderAuditService } from './provider-audit.service';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { RolesGuard } from '../shared-services/auth/roles.guard';
 import { BedCategory, BedInventoryStatus } from '@sahayak/shared-constants';
@@ -32,6 +35,9 @@ const mockIncomingPatients = {
   declineHold: jest.fn(),
 };
 const mockClinicalAck = { acknowledgeHold: jest.fn() };
+const mockProviderUserService = { inviteUser: jest.fn() };
+const mockProviderConfigService = { getHoldExpiryConfig: jest.fn() };
+const mockProviderAuditService = { listForHospital: jest.fn() };
 
 describe('ProviderController', () => {
   let controller: ProviderController;
@@ -44,6 +50,9 @@ describe('ProviderController', () => {
         { provide: BedInventoryService, useValue: mockBedInventory },
         { provide: IncomingPatientsService, useValue: mockIncomingPatients },
         { provide: ClinicalAckService, useValue: mockClinicalAck },
+        { provide: ProviderUserService, useValue: mockProviderUserService },
+        { provide: ProviderConfigService, useValue: mockProviderConfigService },
+        { provide: ProviderAuditService, useValue: mockProviderAuditService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -168,6 +177,58 @@ describe('ProviderController', () => {
         ACTOR_ID,
         'HOSPITAL_CLINICAL_LEAD',
       );
+    });
+  });
+
+  describe('POST /v1/providers/:hospitalId/users (P-10 Add user)', () => {
+    it('provisions a staff account via ProviderUserService', async () => {
+      mockProviderUserService.inviteUser.mockResolvedValue({
+        uid: 'new-uid',
+        name: 'Kavitha R.',
+        email: 'kavitha@apollo.example',
+        role: 'HOSPITAL_ADMISSIONS_STAFF',
+        passwordResetLink: 'https://example.com/reset',
+      });
+
+      const result = await controller.inviteUser(
+        HOSPITAL_ID,
+        { name: 'Kavitha R.', email: 'kavitha@apollo.example', role: 'HOSPITAL_ADMISSIONS_STAFF' as any },
+        { uid: ACTOR_ID } as any,
+      );
+
+      expect(result.data.uid).toBe('new-uid');
+      expect(mockProviderUserService.inviteUser).toHaveBeenCalledWith(
+        HOSPITAL_ID,
+        expect.objectContaining({ email: 'kavitha@apollo.example' }),
+        ACTOR_ID,
+      );
+    });
+  });
+
+  describe('GET /v1/providers/:hospitalId/config (P-11)', () => {
+    it('returns severity-keyed hold-expiry rows (Finding #7 fix)', async () => {
+      mockProviderConfigService.getHoldExpiryConfig.mockResolvedValue([
+        { label: 'CRITICAL bed hold expiry', value: '30 min' },
+        { label: 'PLANNED bed hold expiry', value: '120 min' },
+      ]);
+
+      const result = await controller.getConfig(HOSPITAL_ID);
+
+      expect(result.data.holdExpiry).toHaveLength(2);
+      expect(result.meta).toMatchObject({ hospitalId: HOSPITAL_ID });
+    });
+  });
+
+  describe('GET /v1/providers/:hospitalId/audit (P-12)', () => {
+    it('returns real audit rows scoped to this hospital', async () => {
+      mockProviderAuditService.listForHospital.mockResolvedValue([
+        { id: 'a1', actor: ACTOR_ID, action: 'BED_INVENTORY_UPDATED', entityType: 'HospitalBedInventory', entityId: 'row-1', createdAt: new Date(), metadata: {} },
+      ]);
+
+      const result = await controller.getAuditLog(HOSPITAL_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(mockProviderAuditService.listForHospital).toHaveBeenCalledWith(HOSPITAL_ID);
     });
   });
 });

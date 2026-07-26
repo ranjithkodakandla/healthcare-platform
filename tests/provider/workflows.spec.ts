@@ -30,25 +30,37 @@ test.describe('Provider portal workflows', () => {
       await page.evaluate(() => {
         localStorage.setItem('provider_hospital_id', 'e2e-hospital');
         localStorage.setItem('provider_token', 'e2e-mock-token');
+        localStorage.setItem('provider_role', 'PROVIDER_STAFF');
+        localStorage.setItem('provider_type', 'HOSPITAL');
       });
       await page.goto('/hospital/dashboard');
     }
     await stepShot(page, 'provider-dashboard');
 
-    for (const path of [
-      '/hospital/beds',
-      '/hospital/queue',
-      '/hospital/cases',
-      '/hospital/reports',
-      '/hospital/analytics',
-      '/hospital/ai-assistant',
-      '/ambulance/fleet',
-      '/pharmacy/stock',
-      '/blood-bank/pre-alerts',
-      '/doctor/availability',
-    ]) {
+    // PortalGuard (Finding #1/#9 fix) only renders a portal's screens when the
+    // session's providerType matches — each non-Hospital path below needs the
+    // matching provider_type injected first, same as a real cross-portal login would.
+    const PATH_PROVIDER_TYPE: Record<string, string> = {
+      '/hospital/beds': 'HOSPITAL',
+      '/hospital/queue': 'HOSPITAL',
+      '/hospital/cases': 'HOSPITAL',
+      '/hospital/reports': 'HOSPITAL',
+      '/hospital/analytics': 'HOSPITAL',
+      '/hospital/ai-assistant': 'HOSPITAL',
+      '/ambulance/fleet': 'AMBULANCE_OPERATOR',
+      '/pharmacy/stock': 'PHARMACY',
+      '/blood-bank/pre-alerts': 'BLOOD_BANK',
+      '/doctor/availability': 'DOCTOR',
+    };
+
+    for (const path of Object.keys(PATH_PROVIDER_TYPE)) {
+      await page.evaluate(
+        (providerType) => localStorage.setItem('provider_type', providerType),
+        PATH_PROVIDER_TYPE[path],
+      );
       await providerShell.go(path);
       await expect(page.locator('body')).toBeVisible();
+      await expect(page.getByRole('alert').filter({ hasText: /Not authorized/i })).toHaveCount(0);
       await stepShot(page, `provider-${path.replace(/\//g, '_')}`);
     }
 

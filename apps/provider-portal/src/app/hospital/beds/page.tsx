@@ -70,6 +70,29 @@ function formatAge(dateStr: string): string {
   return `${Math.floor(mins / 60)}h ago`;
 }
 
+// Maps known backend validation error codes (bed-inventory.service.ts) to a friendly,
+// field-level message — replaces dumping the raw `METHOD /path: status {json}` string
+// into the DOM (UAT Finding #4). `requiresOverride` tells the caller whether to reveal
+// the override-reason affordance (Finding #5 — the API already supports overrideReason,
+// the UI never collected it).
+function friendlyBedError(message: string): { text: string; requiresOverride: boolean } {
+  const exceeds = message.match(/BED_INVENTORY_COUNT_EXCEEDS_TOTAL: category (\w+) — occupied\((\d+)\) \+ available\((\d+)\) > total\((\d+)\)/);
+  if (exceeds) {
+    const [, category, occupied, available, total] = exceeds;
+    const label = BED_CATEGORY_LABEL[category as BedCategory] ?? category;
+    return {
+      text: `${label}: occupied (${occupied}) + available (${available}) is more than the total (${total}). Fix the counts, or provide a reason below to override.`,
+      requiresOverride: true,
+    };
+  }
+  const negative = message.match(/BED_INVENTORY_NEGATIVE_COUNT: category (\w+)/);
+  if (negative) {
+    const label = BED_CATEGORY_LABEL[negative[1] as BedCategory] ?? negative[1];
+    return { text: `${label}: counts cannot be negative.`, requiresOverride: false };
+  }
+  return { text: 'Failed to submit update. Please try again.', requiresOverride: false };
+}
+
 export default function BedsPage() {
   const session = typeof window !== 'undefined' ? getSession() : null;
   const hospitalId = session?.hospitalId ?? 'hosp-apollo-blr';
@@ -79,6 +102,8 @@ export default function BedsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+  const [needsOverride, setNeedsOverride] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,10 +132,18 @@ export default function BedsPage() {
       next[idx] = row;
       return next;
     });
+    // Clear a stale validation error once the operator starts fixing the counts
+    // (previously the error banner stayed on screen after the values became valid).
+    setError(null);
+    setNeedsOverride(false);
   };
 
   const handleSubmit = async () => {
     if (submitting) return;
+    if (needsOverride && !overrideReason.trim()) {
+      setError('An override reason is required to save counts that exceed the total.');
+      return;
+    }
     setSubmitting(true);
     setSubmitMsg(null);
     setError(null);
@@ -123,11 +156,20 @@ export default function BedsPage() {
           occupiedCount: r.occupied,
           totalCount: r.total,
         })),
+        needsOverride ? overrideReason.trim() : undefined,
       );
       setSubmitMsg('Bed counts saved. Inventory is marked up to date.');
+      setNeedsOverride(false);
+      setOverrideReason('');
       await load(); // refresh from server to confirm
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to submit update');
+      if (err instanceof ApiError) {
+        const { text, requiresOverride } = friendlyBedError(err.message);
+        setError(text);
+        setNeedsOverride(requiresOverride);
+      } else {
+        setError('Failed to submit update. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -151,7 +193,23 @@ export default function BedsPage() {
       {error && (
         <div className="rounded-[10px] p-3 mb-4" style={{ background: '#FBE3E3', border: '1px solid #C62E2E' }}>
           <p className="text-[12px] font-semibold" style={{ color: '#C62E2E' }}>{error}</p>
-          <button onClick={load} className="text-[12px] font-bold underline mt-1" style={{ color: '#C62E2E' }}>Reload</button>
+          {needsOverride ? (
+            <div className="mt-2">
+              <label htmlFor="override-reason" className="block text-[11px] font-semibold mb-1" style={{ color: '#C62E2E' }}>
+                Override reason
+              </label>
+              <input
+                id="override-reason"
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="e.g. Correcting a miscounted total after audit"
+                className="w-full h-10 rounded-[6px] px-2.5 text-[13px] outline-none"
+                style={{ border: '1px solid #C62E2E', color: '#1A1D1F', background: '#FFFFFF' }}
+              />
+            </div>
+          ) : (
+            <button onClick={load} className="text-[12px] font-bold underline mt-1" style={{ color: '#C62E2E' }}>Reload</button>
+          )}
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { CitizenBedSearchService } from './citizen-bed-search.service';
 import { CitizenAmbulanceService } from './citizen-ambulance.service';
 import { CaseService } from '../core/case.service';
 import { ResourceCoordinationService } from '../resource-coordination/resource-coordination.service';
+import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { BedCategory, CaseSeverity } from '@sahayak/shared-constants';
 
@@ -23,12 +24,15 @@ const mockCaseService = {
   createGuestCase: jest.fn(),
   createCase: jest.fn(),
   getTimeline: jest.fn(),
+  getCaseSeverity: jest.fn(),
 };
 
 const mockResourceCoordination = {
   ensureCapacity: jest.fn(),
   createHold: jest.fn(),
 };
+
+const mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
 
 const fakeUser = { uid: 'user-123', role: 'CITIZEN' };
 
@@ -52,6 +56,7 @@ describe('CitizenController', () => {
         { provide: CitizenAmbulanceService, useValue: mockAmbulanceService },
         { provide: CaseService, useValue: mockCaseService },
         { provide: ResourceCoordinationService, useValue: mockResourceCoordination },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -60,6 +65,7 @@ describe('CitizenController', () => {
 
     controller = module.get<CitizenController>(CitizenController);
     jest.clearAllMocks();
+    mockConfigService.get.mockReturnValue(undefined);
   });
 
   // ── Bed Search ────────────────────────────────────────────────────────────────
@@ -167,7 +173,11 @@ describe('CitizenController', () => {
   // ── Bed Hold (FR-BED-003 / BR-02 / BR-04) ────────────────────────────────────
 
   describe('placeBedHold', () => {
-    it('places General hold with 600s TTL, no secondaryAck', async () => {
+    // BR-02: TTL is keyed by case severity (CRITICAL=30min, else PLANNED=120min per
+    // PRD default), not bed category (Finding #7 fix) — requiresSecondaryAck remains
+    // category-keyed (BR-04, an unrelated concern to hold expiry).
+    it('places a non-critical-case General hold with the PLANNED (120min) TTL, no secondaryAck', async () => {
+      mockCaseService.getCaseSeverity.mockResolvedValue(CaseSeverity.MODERATE);
       mockResourceCoordination.ensureCapacity.mockResolvedValue({});
       mockResourceCoordination.createHold.mockResolvedValue({ id: 'hold-1', status: 'PENDING' });
 
@@ -178,13 +188,14 @@ describe('CitizenController', () => {
       );
 
       expect(mockResourceCoordination.createHold).toHaveBeenCalledWith(
-        expect.objectContaining({ ttlSeconds: 600, requiresSecondaryAck: false }),
+        expect.objectContaining({ ttlSeconds: 7200, requiresSecondaryAck: false }),
       );
-      expect(result.meta.ttlSeconds).toBe(600);
+      expect(result.meta.ttlSeconds).toBe(7200);
       expect(result.meta.requiresSecondaryAck).toBe(false);
     });
 
-    it('places ICU hold with 300s TTL and requiresSecondaryAck=true (BR-04)', async () => {
+    it('places a CRITICAL-case ICU hold with the CRITICAL (30min) TTL and requiresSecondaryAck=true (BR-04)', async () => {
+      mockCaseService.getCaseSeverity.mockResolvedValue(CaseSeverity.CRITICAL);
       mockResourceCoordination.ensureCapacity.mockResolvedValue({});
       mockResourceCoordination.createHold.mockResolvedValue({ id: 'hold-2', status: 'PENDING' });
 
@@ -195,12 +206,13 @@ describe('CitizenController', () => {
       );
 
       expect(mockResourceCoordination.createHold).toHaveBeenCalledWith(
-        expect.objectContaining({ ttlSeconds: 300, requiresSecondaryAck: true }),
+        expect.objectContaining({ ttlSeconds: 1800, requiresSecondaryAck: true }),
       );
       expect(result.meta.requiresSecondaryAck).toBe(true);
     });
 
-    it('places VENTILATOR hold with requiresSecondaryAck=true (BR-04)', async () => {
+    it('places a VENTILATOR hold with requiresSecondaryAck=true regardless of severity (BR-04)', async () => {
+      mockCaseService.getCaseSeverity.mockResolvedValue(null);
       mockResourceCoordination.ensureCapacity.mockResolvedValue({});
       mockResourceCoordination.createHold.mockResolvedValue({ id: 'hold-3' });
 
@@ -211,7 +223,25 @@ describe('CitizenController', () => {
       );
 
       expect(result.meta.requiresSecondaryAck).toBe(true);
-      expect(result.meta.ttlSeconds).toBe(300);
+      // No Case.severity found → defaults to the PLANNED bucket, not CRITICAL.
+      expect(result.meta.ttlSeconds).toBe(7200);
+    });
+
+    it('honors BED_HOLD_EXPIRY_MIN_CRITICAL/PLANNED env overrides (PRD line 1024: never hardcode)', async () => {
+      mockConfigService.get.mockImplementation((key: string) =>
+        key === 'BED_HOLD_EXPIRY_MIN_CRITICAL' ? '45' : undefined,
+      );
+      mockCaseService.getCaseSeverity.mockResolvedValue(CaseSeverity.CRITICAL);
+      mockResourceCoordination.ensureCapacity.mockResolvedValue({});
+      mockResourceCoordination.createHold.mockResolvedValue({ id: 'hold-4' });
+
+      const result = await controller.placeBedHold(
+        'case-1',
+        { hospitalId: 'h1', category: BedCategory.GENERAL },
+        fakeUser,
+      );
+
+      expect(result.meta.ttlSeconds).toBe(45 * 60);
     });
   });
 

@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
-import { Role } from '@sahayak/shared-constants';
+import { ProviderType, Role } from '@sahayak/shared-constants';
 import { AuthenticatedPrincipal, AuthProvider } from './auth-provider.interface';
 import { getFirebaseAdminApp } from './firebase-admin.app';
 
@@ -22,8 +22,9 @@ export class FirebaseAuthProvider implements AuthProvider {
       throw new UnauthorizedException('Invalid or expired auth token');
     }
 
-    // Role/orgId are assigned as Firebase custom claims at provider-onboarding time
-    // (Phase 3, G4) or citizen-registration time — not decided by this provider.
+    // Role/orgId/providerType are assigned as Firebase custom claims at
+    // provider-onboarding time (Phase 3, G4) or citizen-registration time — not
+    // decided by this provider.
     const role = (decoded.role as Role | undefined) ?? Role.CITIZEN;
 
     return {
@@ -32,6 +33,7 @@ export class FirebaseAuthProvider implements AuthProvider {
       email: decoded.email,
       role,
       orgId: decoded.orgId as string | undefined,
+      providerType: decoded.providerType as ProviderType | undefined,
     };
   }
 }

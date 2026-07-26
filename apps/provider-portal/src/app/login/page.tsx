@@ -1,26 +1,19 @@
 'use client';
 
 // P-01: Portal Login — Firebase email/password → POST /v1/auth/session → Bearer token.
+// Which portal a signed-in user lands on is derived from the verified `providerType`
+// the backend returns (Firebase custom claim), never from a pre-login UI choice — see
+// Finding #1/#9 of PROVIDER_UAT_REPORT.md: a free-text org id and a self-selected
+// "workplace type" let any account reach any other org's/portal's screens.
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { signInProvider } from '@/lib/auth';
-
-const PORTAL_CHOICES = [
-  { id: 'hospital', label: 'Hospital' },
-  { id: 'doctor', label: 'Doctor' },
-  { id: 'ambulance', label: 'Ambulance Operator' },
-  { id: 'pharmacy', label: 'Pharmacy' },
-  { id: 'blood_bank', label: 'Blood Bank' },
-  { id: 'diagnostic', label: 'Diagnostic Center' },
-  { id: 'insurance', label: 'Insurance' },
-];
+import { PROVIDER_TYPE_LANDING_PATH } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [selectedPortal, setSelectedPortal] = useState('hospital');
-  const [hospitalId, setHospitalId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,16 +22,19 @@ export default function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!hospitalId.trim() || !email.trim() || !password) {
-      setError('Organization ID, email, and password are required');
+    if (!email.trim() || !password) {
+      setError('Work email and password are required');
       return;
     }
     setBusy(true);
     try {
-      await signInProvider({ email, password, hospitalId });
-      localStorage.setItem('provider_portal_type', selectedPortal);
-      // Hospital console home (there is no /dashboard route in this app).
-      router.push('/hospital/dashboard');
+      const { providerType } = await signInProvider({ email, password });
+      const landingPath = providerType ? PROVIDER_TYPE_LANDING_PATH[providerType] : null;
+      if (!landingPath) {
+        setError('This account is not linked to a provider portal. Contact your administrator.');
+        return;
+      }
+      router.push(landingPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign-in failed');
     } finally {
@@ -71,49 +67,6 @@ export default function LoginPage() {
         </h1>
         <p className="text-[14px] mt-1 mb-5" style={{ color: '#7C8388' }}>
           For hospital, pharmacy, ambulance, and partner staff
-        </p>
-
-        <p className="text-[13px] font-semibold mb-2" style={{ color: '#4A5054' }}>
-          What kind of workplace?
-        </p>
-        <div className="grid grid-cols-2 gap-2 mb-5" role="radiogroup" aria-label="Workplace type">
-          {PORTAL_CHOICES.map((p) => {
-            const active = selectedPortal === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setSelectedPortal(p.id)}
-                className="rounded-[8px] min-h-12 px-3 py-3 text-[13px] font-semibold text-center transition-colors cursor-pointer"
-                style={{
-                  border: `1.5px solid ${active ? '#0B5C66' : '#E7EBEC'}`,
-                  background: active ? '#DEF3F5' : '#FFFFFF',
-                  color: active ? '#0B5C66' : '#4A5054',
-                }}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <label htmlFor="provider-org-id" className="block text-[13px] font-semibold mb-1.5" style={{ color: '#4A5054' }}>
-          Organization ID
-        </label>
-        <input
-          id="provider-org-id"
-          value={hospitalId}
-          onChange={(e) => setHospitalId(e.target.value)}
-          placeholder="Given by your hospital admin"
-          className="w-full h-12 rounded-[8px] px-3 text-[15px] outline-none mb-1.5"
-          style={{ border: '1px solid #C7CDD0', color: '#1A1D1F' }}
-          disabled={busy}
-          autoComplete="organization"
-        />
-        <p className="text-[12px] mb-3.5" style={{ color: '#7C8388' }}>
-          Ask your admin if you do not have this ID.
         </p>
 
         <label htmlFor="provider-email" className="block text-[13px] font-semibold mb-1.5" style={{ color: '#4A5054' }}>

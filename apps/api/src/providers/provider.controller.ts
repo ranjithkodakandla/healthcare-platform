@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { RolesGuard } from '../shared-services/auth/roles.guard';
+import { OrgScopeGuard } from '../shared-services/auth/org-scope.guard';
 import { Roles } from '../shared-services/auth/roles.decorator';
 import { CurrentUser } from '../shared-services/auth/current-user.decorator';
 import { Role } from '@sahayak/shared-constants';
@@ -26,6 +27,10 @@ import {
   DeclineHoldDto,
   ClinicalAckDto,
 } from './dto/update-bed-inventory.dto';
+import { InviteProviderUserDto } from './dto/invite-provider-user.dto';
+import { ProviderUserService } from './provider-user.service';
+import { ProviderConfigService } from './provider-config.service';
+import { ProviderAuditService } from './provider-audit.service';
 
 @ApiTags('Provider Portal')
 @ApiBearerAuth()
@@ -35,12 +40,15 @@ export class ProviderController {
     private readonly bedInventory: BedInventoryService,
     private readonly incomingPatients: IncomingPatientsService,
     private readonly clinicalAckService: ClinicalAckService,
+    private readonly providerUserService: ProviderUserService,
+    private readonly providerConfigService: ProviderConfigService,
+    private readonly providerAuditService: ProviderAuditService,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
 
   @Get(':hospitalId/dashboard')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @ApiOperation({ summary: 'P-02: Hospital portal dashboard summary' })
   async getDashboard(@Param('hospitalId') hospitalId: string) {
@@ -77,7 +85,7 @@ export class ProviderController {
   // ── FR-BED-001: Bed Inventory Update (P-03) ───────────────────────────────────
 
   @Put(':hospitalId/beds')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @ApiOperation({
     summary: 'P-03: FR-BED-001 — update hospital bed category counts (Portal path)',
@@ -104,7 +112,7 @@ export class ProviderController {
   // caller's responsibility (the Messaging adapter does that upstream; this
   // endpoint receives the already-parsed updates to keep the service layer pure).
   @Post(':hospitalId/beds/whatsapp-update')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -133,7 +141,7 @@ export class ProviderController {
   }
 
   @Get(':hospitalId/beds')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @ApiOperation({ summary: 'Get current bed inventory for a hospital' })
   async getBedInventory(@Param('hospitalId') hospitalId: string) {
@@ -144,7 +152,7 @@ export class ProviderController {
   // ── FR-HOSP-001: Incoming Patients / Booking Queue (P-04) ────────────────────
 
   @Get(':hospitalId/incoming-queue')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @ApiOperation({
     summary: 'P-04: FR-HOSP-001 — incoming patients/booking queue ranked by severity',
@@ -155,7 +163,7 @@ export class ProviderController {
   }
 
   @Post(':hospitalId/holds/:holdId/confirm')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -176,7 +184,7 @@ export class ProviderController {
   }
 
   @Post(':hospitalId/holds/:holdId/decline')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'FR-HOSP-001 — Admissions declines a hold with reason' })
@@ -193,7 +201,7 @@ export class ProviderController {
   // ── FR-HOSP-002: ICU/Vent Clinical Acknowledgment (P-05) ─────────────────────
 
   @Post(':hospitalId/holds/:holdId/clinical-ack')
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
   @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -212,5 +220,42 @@ export class ProviderController {
       dto.actorRole,
     );
     return { data: { holdId, status: 'CONFIRMED', clinicalAckLogged: true }, meta: {} };
+  }
+
+  // ── P-10: User Management "+ Add user" (F3.6) ────────────────────────────────
+
+  @Post(':hospitalId/users')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'P-10: FR-ID F3.6 — provision a new hospital staff account' })
+  async inviteUser(
+    @Param('hospitalId') hospitalId: string,
+    @Body() dto: InviteProviderUserDto,
+    @CurrentUser() user: { uid: string },
+  ) {
+    const created = await this.providerUserService.inviteUser(hospitalId, dto, user.uid);
+    return { data: created, meta: { hospitalId } };
+  }
+
+  // ── P-11: Configuration (F2, G16) ────────────────────────────────────────────
+
+  @Get(':hospitalId/config')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'P-11: BR-02 hold-expiry windows (read-only)' })
+  async getConfig(@Param('hospitalId') hospitalId: string) {
+    const holdExpiry = await this.providerConfigService.getHoldExpiryConfig();
+    return { data: { holdExpiry }, meta: { hospitalId } };
+  }
+
+  // ── P-12: Audit Logs (F2, GT-06) ─────────────────────────────────────────────
+
+  @Get(':hospitalId/audit')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'P-12: GT-06 — audit log entries for this hospital' })
+  async getAuditLog(@Param('hospitalId') hospitalId: string) {
+    const rows = await this.providerAuditService.listForHospital(hospitalId);
+    return { data: rows, meta: { hospitalId, count: rows.length } };
   }
 }

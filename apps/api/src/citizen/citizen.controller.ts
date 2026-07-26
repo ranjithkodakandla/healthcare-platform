@@ -12,6 +12,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { CurrentUser } from '../shared-services/auth/current-user.decorator';
 import { CaseService } from '../core/case.service';
@@ -27,16 +28,17 @@ import {
 } from './dto/citizen.dto';
 import { CaseSeverity, BedCategory, ResourceType } from '@sahayak/shared-constants';
 
-// Bed hold TTLs (BR-02):  General = 10 min, ICU/Vent = 5 min
-const HOLD_TTL: Record<string, number> = {
-  [BedCategory.GENERAL]: 600,
-  [BedCategory.MATERNITY]: 600,
-  [BedCategory.NICU]: 600,
-  [BedCategory.ISOLATION]: 600,
-  [BedCategory.ICU]: 300,
-  [BedCategory.VENTILATOR]: 300,
-};
 const ICU_VENT_CATEGORIES = [BedCategory.ICU, BedCategory.VENTILATOR];
+
+// PRD §2.8 BR-02 default hold-expiry windows, by case severity (not bed category —
+// PROVIDER_UAT_REPORT.md Finding #7 flagged the previous category-keyed windows as
+// both spec-non-compliant and operationally backwards: ICU/Vent, which needs the
+// extra BR-04 clinical-ack step, had a *shorter* window than General). Runtime-
+// configurable per PRD line 1024 ("never hardcoded constants in module code") via
+// env vars, defaulting to the PRD's named values (Part J: BED_HOLD_EXPIRY_MIN_CRITICAL
+// = 30, BED_HOLD_EXPIRY_MIN_PLANNED = 120).
+const DEFAULT_HOLD_EXPIRY_MIN_CRITICAL = 30;
+const DEFAULT_HOLD_EXPIRY_MIN_PLANNED = 120;
 
 @ApiTags('Citizen App')
 @Controller('v1/citizen')
@@ -46,7 +48,17 @@ export class CitizenController {
     private readonly ambulanceService: CitizenAmbulanceService,
     private readonly caseService: CaseService,
     private readonly resourceCoordination: ResourceCoordinationService,
+    private readonly config: ConfigService,
   ) {}
+
+  private async resolveHoldTtlSeconds(caseId: string): Promise<number> {
+    const severity = await this.caseService.getCaseSeverity(caseId);
+    const isCritical = severity === CaseSeverity.CRITICAL;
+    const minutes = isCritical
+      ? Number(this.config.get('BED_HOLD_EXPIRY_MIN_CRITICAL') ?? DEFAULT_HOLD_EXPIRY_MIN_CRITICAL)
+      : Number(this.config.get('BED_HOLD_EXPIRY_MIN_PLANNED') ?? DEFAULT_HOLD_EXPIRY_MIN_PLANNED);
+    return minutes * 60;
+  }
 
   // ── FR-BED-002: Bed Search (C-12) ────────────────────────────────────────────
 
@@ -210,7 +222,7 @@ export class CitizenController {
     @Body() dto: PlaceBedHoldDto,
     @CurrentUser() user: { uid: string },
   ) {
-    const ttl = HOLD_TTL[dto.category] ?? 600;
+    const ttl = await this.resolveHoldTtlSeconds(caseId);
     const requiresSecondaryAck = ICU_VENT_CATEGORIES.includes(dto.category as BedCategory);
     const resourceOwnerId = `${dto.hospitalId}:${dto.category}`;
 

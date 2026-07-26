@@ -34,6 +34,7 @@ export default function DoctorAvailabilityPage() {
             <button
               key={s.id}
               onClick={() => setStatus(s.id)}
+              aria-pressed={status === s.id}
               className="h-[52px] rounded-[8px] text-[12px] font-bold text-center cursor-pointer transition-opacity"
               style={{
                 border: `1.5px solid ${status === s.id ? s.border : '#E7EBEC'}`,

@@ -1,29 +1,55 @@
 // Typed API client for the Sahayak Provider Portal.
 // All provider endpoints live under /v1/providers/:hospitalId/.
 // Auth token is sent as Bearer in the Authorization header.
-// hospitalId and token are read from localStorage (set by the login flow).
-// Token is a Firebase ID token set by src/lib/auth.ts after email/password sign-in.
+// Session identity (hospitalId/orgId, role, providerType, token) is read from
+// localStorage, set once by the login flow (src/lib/auth.ts) from the verified
+// POST /v1/auth/session response — never from user-typed login-form fields.
+// Token is a Firebase ID token.
+
+import { ProviderType } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 // ── Auth helpers ───────────────────────────────────────────────────────────────
 
-export function getSession(): { hospitalId: string; token: string } | null {
+export interface ProviderSession {
+  hospitalId: string;
+  token: string;
+  role: string;
+  providerType: ProviderType | null;
+}
+
+export function getSession(): ProviderSession | null {
   if (typeof window === 'undefined') return null;
   const hospitalId = localStorage.getItem('provider_hospital_id');
   const token = localStorage.getItem('provider_token');
   if (!hospitalId || !token) return null;
-  return { hospitalId, token };
+  const role = localStorage.getItem('provider_role') ?? '';
+  const providerType = localStorage.getItem('provider_type') as ProviderType | null;
+  return { hospitalId, token, role, providerType };
 }
 
-export function saveSession(hospitalId: string, token: string): void {
-  localStorage.setItem('provider_hospital_id', hospitalId);
-  localStorage.setItem('provider_token', token);
+export function saveSession(session: {
+  orgId: string;
+  token: string;
+  role: string;
+  providerType: ProviderType | null;
+}): void {
+  localStorage.setItem('provider_hospital_id', session.orgId);
+  localStorage.setItem('provider_token', session.token);
+  localStorage.setItem('provider_role', session.role);
+  if (session.providerType) {
+    localStorage.setItem('provider_type', session.providerType);
+  } else {
+    localStorage.removeItem('provider_type');
+  }
 }
 
 export function clearSession(): void {
   localStorage.removeItem('provider_hospital_id');
   localStorage.removeItem('provider_token');
+  localStorage.removeItem('provider_role');
+  localStorage.removeItem('provider_type');
 }
 
 // ── Request helpers ────────────────────────────────────────────────────────────
@@ -236,4 +262,35 @@ export const providerApi = {
       return request('POST', `/v1/providers/${hospitalId}/holds/${holdId}/clinical-ack`, { actorRole });
     },
   },
+
+  users: {
+    invite(
+      hospitalId: string,
+      body: { name: string; email: string; role: string },
+    ): Promise<{ data: { uid: string; name: string; email: string; role: string; passwordResetLink: string } }> {
+      return request('POST', `/v1/providers/${hospitalId}/users`, body);
+    },
+  },
+
+  config: {
+    get(hospitalId: string): Promise<{ data: { holdExpiry: Array<{ label: string; value: string }> } }> {
+      return request('GET', `/v1/providers/${hospitalId}/config`);
+    },
+  },
+
+  audit: {
+    list(hospitalId: string): Promise<{ data: AuditLogRow[]; meta: { count: number } }> {
+      return request('GET', `/v1/providers/${hospitalId}/audit`);
+    },
+  },
 };
+
+export interface AuditLogRow {
+  id: string;
+  actor: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
+  metadata: Record<string, unknown> | null;
+}

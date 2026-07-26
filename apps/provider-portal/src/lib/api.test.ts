@@ -9,11 +9,16 @@ import {
 describe('provider api', () => {
   beforeEach(() => {
     localStorage.clear();
-    saveSession('hosp-1', 'tok');
+    saveSession({ orgId: 'hosp-1', token: 'tok', role: 'PROVIDER_STAFF', providerType: 'HOSPITAL' });
   });
 
   it('session helpers and ApiError flags', () => {
-    expect(getSession()).toEqual({ hospitalId: 'hosp-1', token: 'tok' });
+    expect(getSession()).toEqual({
+      hospitalId: 'hosp-1',
+      token: 'tok',
+      role: 'PROVIDER_STAFF',
+      providerType: 'HOSPITAL',
+    });
     clearSession();
     expect(getSession()).toBeNull();
     const err = new ApiError(401, 'x');
@@ -40,7 +45,7 @@ describe('provider api', () => {
       }),
       text: async () => '',
     }) as never;
-    saveSession('hosp-1', 'tok');
+    saveSession({ orgId: 'hosp-1', token: 'tok', role: 'PROVIDER_STAFF', providerType: 'HOSPITAL' });
     await providerApi.dashboard.get('hosp-1');
     await providerApi.beds.get('hosp-1');
     await providerApi.beds.update('hosp-1', [{ category: 'ICU', availableCount: 1 }]);
