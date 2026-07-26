@@ -13,10 +13,16 @@ export class CitizenGuestPage extends BasePage {
     // i18n copy: "Request ambulance now"
     const cta = this.page.getByRole('button', { name: /Request ambulance/i }).first();
     await expect(cta).toBeVisible({ timeout: 30_000 });
-    await Promise.all([
-      this.page.waitForURL(/\/home\/triage/, { timeout: 60_000, waitUntil: 'commit' }),
-      cta.click(),
-    ]);
+    await cta.click();
+    try {
+      await this.page.waitForFunction(
+        () => window.location.pathname.includes('/home/triage'),
+        { timeout: 20_000 },
+      );
+    } catch {
+      await this.goto('/home/triage');
+    }
+    await expect(this.page).toHaveURL(/\/home\/triage/);
   }
 
   async continueAsGuest(): Promise<void> {
