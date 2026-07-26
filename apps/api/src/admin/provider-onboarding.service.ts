@@ -1,11 +1,23 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ProviderApplication } from '@prisma/client';
-import { ERROR_CODES, OnboardingStage, OnboardingStageStatus, ProviderType } from '@sahayak/shared-constants';
+import * as admin from 'firebase-admin';
+import {
+  ERROR_CODES,
+  OnboardingStage,
+  OnboardingStageStatus,
+  ProviderType,
+  Role,
+} from '@sahayak/shared-constants';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../shared-services/audit/audit.service';
+import { getFirebaseAdminApp } from '../shared-services/auth/firebase-admin.app';
 
-// PRD Part G4 / FR-ADM-PRV-001 Main Flow, transcribed verbatim and in strict order —
-// never reorder without a Decision Log entry.
 const STAGE_ORDER: OnboardingStage[] = [
   OnboardingStage.APPLICATION_INTAKE,
   OnboardingStage.CREDENTIAL_VERIFICATION,
@@ -18,6 +30,10 @@ export interface CreateProviderApplicationInput {
   providerType: ProviderType;
   legalName: string;
   actor: string;
+  orgId?: string;
+  portalEmail?: string;
+  portalPassword?: string;
+  city?: string;
 }
 
 export interface CompleteStageInput {
@@ -27,50 +43,92 @@ export interface CompleteStageInput {
   notes?: string;
 }
 
-// G4: "a structured, stage-gated onboarding workflow ... blocking portal go-live
-// (F3-F9 access) until all mandatory stages are complete." UX Spec A-04's
-// zero-tolerance audit requirement — isPortalLive() is the single source of truth
-// every Provider Portal auth check must consult before granting F3-F9 access.
 @Injectable()
 export class ProviderOnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly config: ConfigService,
   ) {}
 
   async createApplication(input: CreateProviderApplicationInput): Promise<ProviderApplication> {
-    return this.prisma.$transaction(async (tx) => {
-      const application = await tx.providerApplication.create({
-        data: { providerType: input.providerType, legalName: input.legalName },
+    const wantsCreds = Boolean(input.portalEmail || input.portalPassword || input.orgId);
+    if (wantsCreds) {
+      if (!input.orgId?.trim() || !input.portalEmail?.trim() || !input.portalPassword) {
+        throw new BadRequestException(
+          'orgId, portalEmail, and portalPassword are required together to set provider credentials',
+        );
+      }
+      if (input.portalPassword.length < 8) {
+        throw new BadRequestException('portalPassword must be at least 8 characters');
+      }
+    }
+
+    const application = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.providerApplication.create({
+        data: {
+          providerType: input.providerType,
+          legalName: input.legalName,
+          orgId: input.orgId?.trim() || null,
+          portalEmail: input.portalEmail?.trim().toLowerCase() || null,
+        },
       });
 
-      // All 5 stages created up front (PENDING) so "every mandatory stage logged
-      // complete" can be verified by a simple query rather than inferred from a
-      // stage row's absence.
       await tx.providerOnboardingStage.createMany({
-        data: STAGE_ORDER.map((stage) => ({ applicationId: application.id, stage })),
+        data: STAGE_ORDER.map((stage) => ({ applicationId: created.id, stage })),
       });
+
+      if (input.providerType === ProviderType.HOSPITAL && input.orgId?.trim()) {
+        const orgId = input.orgId.trim();
+        const existing = await tx.hospitalRegistry.findUnique({ where: { hospitalId: orgId } });
+        if (!existing) {
+          await tx.hospitalRegistry.create({
+            data: {
+              hospitalId: orgId,
+              name: input.legalName,
+              address: 'To be confirmed',
+              city: input.city?.trim() || 'Bengaluru',
+              state: 'KA',
+              lat: 12.9716,
+              lng: 77.5946,
+            },
+          });
+        }
+      }
 
       await this.audit.record(
         {
           actor: input.actor,
           action: 'PROVIDER_APPLICATION_CREATED',
           entityType: 'ProviderApplication',
-          entityId: application.id,
-          metadata: { providerType: input.providerType },
+          entityId: created.id,
+          metadata: {
+            providerType: input.providerType,
+            orgId: input.orgId ?? null,
+            portalEmail: input.portalEmail ?? null,
+          },
         },
         tx,
       );
 
-      return application;
+      return created;
     });
+
+    if (wantsCreds) {
+      await this.provisionPortalLogin({
+        orgId: input.orgId!.trim(),
+        email: input.portalEmail!.trim().toLowerCase(),
+        password: input.portalPassword!,
+        displayName: input.legalName,
+        actor: input.actor,
+        applicationId: application.id,
+      });
+    }
+
+    return application;
   }
 
-  // Enforces STAGE_ORDER strictly: a stage can only be completed once every stage
-  // before it is COMPLETE. This is the mechanism behind G4's "blocking portal go-live
-  // until all mandatory stages are complete" — there is no way to reach
-  // PORTAL_ACCESS_ACTIVATED out of order.
-  async completeStage(input: CompleteStageInput): Promise<void> {
+  async completeStage(input: CompleteStageInput & { checklistComplete?: boolean }): Promise<void> {
     const stageIndex = STAGE_ORDER.indexOf(input.stage);
 
     await this.prisma.$transaction(async (tx) => {
@@ -82,6 +140,10 @@ export class ProviderOnboardingService {
         throw new NotFoundException(`ProviderApplication ${input.applicationId} not found`);
       }
 
+      if (allStages.some((s) => s.status === OnboardingStageStatus.REJECTED)) {
+        throw new BadRequestException('Application was rejected and cannot be advanced');
+      }
+
       const stageRow = allStages.find((s) => s.stage === input.stage);
       if (!stageRow) {
         throw new NotFoundException(`Stage ${input.stage} not found on this application`);
@@ -91,6 +153,15 @@ export class ProviderOnboardingService {
           code: ERROR_CODES.ONBOARDING_STAGE_ALREADY_COMPLETE,
           message: `Stage ${input.stage} is already complete`,
         });
+      }
+
+      if (
+        input.stage === OnboardingStage.CREDENTIAL_VERIFICATION &&
+        input.checklistComplete !== true
+      ) {
+        throw new BadRequestException(
+          'Credential checklist must be completed before advancing CREDENTIAL_VERIFICATION',
+        );
       }
 
       const priorStages = STAGE_ORDER.slice(0, stageIndex);
@@ -134,8 +205,58 @@ export class ProviderOnboardingService {
     });
   }
 
-  // UX Spec A-04 zero-tolerance gate: true only when every stage, including the
-  // final PORTAL_ACCESS_ACTIVATED stage, is logged COMPLETE.
+  async rejectApplication(input: {
+    applicationId: string;
+    reviewerId: string;
+    notes?: string;
+  }): Promise<ProviderApplication> {
+    return this.prisma.$transaction(async (tx) => {
+      const application = await tx.providerApplication.findUnique({
+        where: { id: input.applicationId },
+        include: { stages: true },
+      });
+      if (!application) {
+        throw new NotFoundException(`ProviderApplication ${input.applicationId} not found`);
+      }
+      if (application.status === 'REJECTED') {
+        throw new BadRequestException('Application is already rejected');
+      }
+
+      const pending = STAGE_ORDER.map((stage) => application.stages.find((s) => s.stage === stage)).find(
+        (s) => s && s.status === OnboardingStageStatus.PENDING,
+      );
+      if (pending) {
+        await tx.providerOnboardingStage.update({
+          where: { id: pending.id },
+          data: {
+            status: OnboardingStageStatus.REJECTED,
+            reviewerId: input.reviewerId,
+            notes: input.notes ?? 'Rejected by console admin',
+            completedAt: new Date(),
+          },
+        });
+      }
+
+      const updated = await tx.providerApplication.update({
+        where: { id: input.applicationId },
+        data: { status: 'REJECTED' },
+      });
+
+      await this.audit.record(
+        {
+          actor: input.reviewerId,
+          action: 'PROVIDER_APPLICATION_REJECTED',
+          entityType: 'ProviderApplication',
+          entityId: input.applicationId,
+          metadata: { notes: input.notes ?? null },
+        },
+        tx,
+      );
+
+      return updated;
+    });
+  }
+
   async isPortalLive(applicationId: string): Promise<boolean> {
     const stages = await this.prisma.providerOnboardingStage.findMany({
       where: { applicationId },
@@ -156,5 +277,143 @@ export class ProviderOnboardingService {
     }
 
     return application;
+  }
+
+  /** First incomplete stage in order, or null if all complete / rejected. */
+  nextPendingStage(stages: Array<{ stage: string; status: string }>): OnboardingStage | null {
+    if (stages.some((s) => s.status === OnboardingStageStatus.REJECTED)) return null;
+    for (const stage of STAGE_ORDER) {
+      const row = stages.find((s) => s.stage === stage);
+      if (!row || row.status !== OnboardingStageStatus.COMPLETE) return stage;
+    }
+    return null;
+  }
+
+  credentialChecklist(providerType: string): Array<{ key: string; label: string }> {
+    const base = [
+      { key: 'legal_entity', label: 'Legal entity name matches registration' },
+      { key: 'contact_verified', label: 'Primary contact reachable' },
+    ];
+    if (providerType === ProviderType.HOSPITAL || providerType === 'HOSPITAL') {
+      return [
+        ...base,
+        { key: 'nabh', label: 'NABH / facility accreditation reviewed' },
+        { key: 'reg_cert', label: 'Hospital registration certificate reviewed' },
+        { key: 'facility', label: 'Facility photos / address verified' },
+      ];
+    }
+    return [
+      ...base,
+      { key: 'license', label: 'Professional / operating license reviewed' },
+      { key: 'identity', label: 'Identity / KYC documents reviewed' },
+    ];
+  }
+
+  listVerificationDocuments(application: ProviderApplication): Array<{
+    key: string;
+    name: string;
+    contentType: string;
+  }> {
+    const type = application.providerType;
+    if (type === ProviderType.HOSPITAL || type === 'HOSPITAL') {
+      return [
+        { key: 'nabh', name: 'NABH_Certificate.pdf', contentType: 'application/pdf' },
+        { key: 'registration', name: 'Registration_Cert.pdf', contentType: 'application/pdf' },
+        { key: 'facility', name: 'Facility_Photos.pdf', contentType: 'application/pdf' },
+      ];
+    }
+    return [
+      { key: 'license', name: 'Operating_License.pdf', contentType: 'application/pdf' },
+      { key: 'identity', name: 'Identity_KYC.pdf', contentType: 'application/pdf' },
+    ];
+  }
+
+  async getVerificationDocument(
+    applicationId: string,
+    docKey: string,
+  ): Promise<{ filename: string; body: Buffer }> {
+    const application = await this.getApplication(applicationId);
+    const docs = this.listVerificationDocuments(application);
+    const doc = docs.find((d) => d.key === docKey);
+    if (!doc) throw new NotFoundException(`Document ${docKey} not found`);
+
+    // Minimal valid PDF so reviewers can download evidence placeholders until
+    // real object storage is wired for uploaded credentials.
+    const text = [
+      '%PDF-1.1',
+      '1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj',
+      '2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj',
+      '3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]',
+      '/Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj',
+      '4 0 obj<< /Length 88 >>stream',
+      'BT /F1 12 Tf 72 720 Td (Sahayak verification document) Tj T*',
+      `(${application.legalName} / ${doc.name}) Tj ET`,
+      'endstream endobj',
+      '5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj',
+      'xref',
+      '0 6',
+      '0000000000 65535 f ',
+      'trailer<< /Size 6 /Root 1 0 R >>',
+      'startxref',
+      '0',
+      '%%EOF',
+    ].join('\n');
+
+    return { filename: doc.name, body: Buffer.from(text, 'utf8') };
+  }
+
+  private async provisionPortalLogin(input: {
+    orgId: string;
+    email: string;
+    password: string;
+    displayName: string;
+    actor: string;
+    applicationId: string;
+  }): Promise<void> {
+    let app: admin.app.App;
+    try {
+      app = getFirebaseAdminApp(this.config);
+    } catch {
+      throw new ServiceUnavailableException(
+        'Firebase is not configured — cannot create provider portal credentials',
+      );
+    }
+
+    const auth = admin.auth(app);
+    let uid: string;
+    try {
+      const existing = await auth.getUserByEmail(input.email);
+      uid = existing.uid;
+      await auth.updateUser(uid, {
+        password: input.password,
+        displayName: input.displayName,
+        emailVerified: true,
+        disabled: false,
+      });
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code !== 'auth/user-not-found') throw err;
+      const created = await auth.createUser({
+        email: input.email,
+        password: input.password,
+        displayName: input.displayName,
+        emailVerified: true,
+      });
+      uid = created.uid;
+    }
+
+    await auth.setCustomUserClaims(uid, {
+      role: Role.PROVIDER_STAFF,
+      orgId: input.orgId,
+      hospitalPortalRole: 'HOSPITAL_ADMINISTRATOR',
+    });
+
+    await this.audit.record({
+      actor: input.actor,
+      action: 'PROVIDER_PORTAL_CREDENTIALS_PROVISIONED',
+      entityType: 'ProviderApplication',
+      entityId: input.applicationId,
+      metadata: { email: input.email, orgId: input.orgId, firebaseUid: uid },
+    });
   }
 }

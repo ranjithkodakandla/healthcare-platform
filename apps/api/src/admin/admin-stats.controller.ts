@@ -45,7 +45,9 @@ export class AdminStatsController {
   async getOnboardingQueue() {
     // Applications not yet portal-live: status has not reached PORTAL_ACCESS_ACTIVATED
     const applications = await this.prisma.providerApplication.findMany({
-      where: { status: { not: OnboardingStage.PORTAL_ACCESS_ACTIVATED } },
+      where: {
+        status: { notIn: [OnboardingStage.PORTAL_ACCESS_ACTIVATED, 'REJECTED'] },
+      },
       include: { stages: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -60,6 +62,8 @@ export class AdminStatsController {
           providerType: a.providerType,
           legalName: a.legalName,
           currentStage: a.status, // furthest-reached stage (schema field name: status)
+          orgId: a.orgId,
+          portalEmail: a.portalEmail,
           isPortalLive,
           createdAt: a.createdAt,
           updatedAt: a.updatedAt,

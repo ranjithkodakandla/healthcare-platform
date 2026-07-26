@@ -36,7 +36,9 @@ function sevVariant(sev: string, status: string): 'danger' | 'warning' | 'info' 
 export default function IssueBoardPage() {
   const [issues, setIssues] = useState<PlatformIssue[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,11 +69,17 @@ export default function IssueBoardPage() {
   }, [issues]);
 
   const move = async (issue: PlatformIssue, status: string) => {
+    setMovingId(issue.id);
+    setError(null);
+    setStatusMsg(null);
     try {
       await adminApi.issues.updateStatus(issue.id, status);
       setIssues((prev) => prev.map((i) => (i.id === issue.id ? { ...i, status } : i)));
+      setStatusMsg(`${issue.issueNumber} moved to ${COL_LABEL[status] ?? status}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Move failed');
+    } finally {
+      setMovingId(null);
     }
   };
 
@@ -80,8 +88,13 @@ export default function IssueBoardPage() {
       <TopBar title="Issue Tracking Board" screenId="A-09" ref_="G7" slug="issues/board" />
 
       {error && (
-        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }}>
+        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }} role="alert">
           {error}
+        </div>
+      )}
+      {statusMsg && (
+        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#DEF3F5', color: '#0B5C66' }} role="status">
+          {statusMsg}
         </div>
       )}
 
@@ -108,8 +121,10 @@ export default function IssueBoardPage() {
                     {COLUMNS.filter((c) => c !== col).map((target) => (
                       <button
                         key={target}
-                        onClick={() => move(card, target)}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-[#F2F4F5] text-[#4A5054] hover:bg-[#E7EBEC]"
+                        type="button"
+                        disabled={movingId === card.id}
+                        onClick={() => void move(card, target)}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-[#F2F4F5] text-[#4A5054] hover:bg-[#E7EBEC] disabled:opacity-50"
                       >
                         → {COL_LABEL[target]}
                       </button>

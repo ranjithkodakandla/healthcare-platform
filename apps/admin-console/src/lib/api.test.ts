@@ -22,9 +22,9 @@ describe('adminApi', () => {
 
     await adminApi.platform.stats();
     await adminApi.platform.onboardingQueue();
-    await adminApi.providers.approveStage('a', 'APPLICATION_INTAKE', 'r', 'n');
+    await adminApi.providers.approveStage('a', 'APPLICATION_INTAKE', 'r', 'n', true);
     await adminApi.users.list();
-    await adminApi.users.create('a@b.c', 'SUPPORT_AGENT');
+    await adminApi.users.create('agent@sahayak.test', 'SUPPORT_AGENT');
     await adminApi.support.listTickets({ requesterType: 'CITIZEN', q: 'x' });
     await adminApi.support.listTickets();
     await adminApi.support.getTicket('t1');
@@ -43,7 +43,9 @@ describe('adminApi', () => {
     await adminApi.governance.audit('q');
     await adminApi.governance.audit();
     await adminApi.citizenOnboarding.list();
-    await adminApi.citizenOnboarding.update('id', 'CLEARED', 'n');
+    await adminApi.citizenOnboarding.update('id', 'RESOLVED', 'n', 'CLEARED');
+    await adminApi.support.caseAccess('t1', 'support investigation');
+    await adminApi.users.update('u1', { role: 'SUPPORT_AGENT', status: 'DEACTIVATED' });
     await adminApi.sla.snapshot();
     await adminApi.analytics.summary();
     await adminApi.knowledgeBase.list();
@@ -63,8 +65,21 @@ describe('adminApi', () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
-      text: async () => 'err',
+      text: async () => JSON.stringify({ statusCode: 500, message: 'Internal server error' }),
     }) as never;
-    await expect(adminApi.platform.stats()).rejects.toBeInstanceOf(ApiError);
+    await expect(adminApi.platform.stats()).rejects.toMatchObject({
+      status: 500,
+      message: 'Something went wrong. Please try again.',
+    });
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () => JSON.stringify({ statusCode: 404, message: 'SupportTicket x not found' }),
+    }) as never;
+    await expect(adminApi.support.getTicket('x')).rejects.toMatchObject({
+      status: 404,
+      message: 'SupportTicket x not found',
+    });
   });
 });

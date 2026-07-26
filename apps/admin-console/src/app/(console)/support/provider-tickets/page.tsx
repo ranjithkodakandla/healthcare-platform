@@ -99,7 +99,7 @@ export default function ProviderTicketsPage() {
                 <td className="px-4 py-3 text-[#7C8388]">{inferType(t)}</td>
                 <td className="px-4 py-3"><Badge variant={statusVariant(t.status)}>{t.status.replace(/_/g, ' ')}</Badge></td>
                 <td className="px-4 py-3 text-right">
-                  <Link href={`/support/tickets/detail?id=${encodeURIComponent(t.id)}`} className="text-[12px] font-bold text-[#0B5C66]">
+                  <Link href={`/support/tickets/detail?id=${encodeURIComponent(t.id)}&from=provider`} className="text-[12px] font-bold text-[#0B5C66]">
                     View
                   </Link>
                 </td>

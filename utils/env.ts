@@ -7,7 +7,7 @@ export const env = {
   providerEmail: process.env.E2E_PROVIDER_EMAIL ?? '',
   providerPassword: process.env.E2E_PROVIDER_PASSWORD ?? '',
   providerHospitalId: process.env.E2E_PROVIDER_HOSPITAL_ID ?? 'APL-BLR-0142',
-  adminEmail: process.env.E2E_ADMIN_EMAIL ?? 'admin.liveverify@sahyak.test',
+  adminEmail: process.env.E2E_ADMIN_EMAIL ?? 'ranjith@sahyak.test',
   adminPassword: process.env.E2E_ADMIN_PASSWORD ?? '',
   demo: process.env.E2E_DEMO === '1' || process.env.E2E_DEMO === 'true',
 };

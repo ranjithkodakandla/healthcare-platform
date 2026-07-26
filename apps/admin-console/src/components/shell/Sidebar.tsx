@@ -1,15 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { getAdminProfile, type AdminProfile } from '@/lib/api';
+import { signOutAdmin } from '@/lib/auth';
 
 const NAV = [
   {
     group: 'Console',
-    items: [
-      { id: 'A02', label: 'Operations Dashboard', href: '/dashboard' },
-    ],
+    items: [{ id: 'A02', label: 'Operations Dashboard', href: '/dashboard' }],
   },
   {
     group: 'Onboarding',
@@ -23,7 +24,6 @@ const NAV = [
     group: 'Support',
     items: [
       { id: 'A06', label: 'Support Ticket Queue', href: '/support/tickets' },
-      { id: 'A07', label: 'Support Ticket Detail', href: '/support/tickets/detail' },
       { id: 'A19', label: 'Provider Issue Resolution', href: '/support/provider-tickets' },
       { id: 'A08', label: 'Remote Session Assist', href: '/support/remote-assist' },
       { id: 'A09', label: 'Issue Tracking Board', href: '/issues/board' },
@@ -34,6 +34,7 @@ const NAV = [
   {
     group: 'Operations',
     items: [
+      { id: 'A20', label: 'Providers', href: '/providers' },
       { id: 'A12', label: 'User & Role Management', href: '/users' },
       { id: 'A13', label: 'Workflow Management', href: '/workflows' },
       { id: 'A14', label: 'Platform Monitoring', href: '/monitoring' },
@@ -44,21 +45,34 @@ const NAV = [
   },
   {
     group: 'Governance',
-    items: [
-      { id: 'A18', label: 'Feature Flags / Config / Audit', href: '/governance' },
-    ],
+    items: [{ id: 'A18', label: 'Feature Flags / Config / Audit', href: '/governance' }],
   },
 ];
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
+
+  useEffect(() => {
+    setProfile(getAdminProfile());
+  }, [pathname]);
+
+  const displayName = profile?.displayName || 'Signed-in staff';
+  const roleLabel = profile?.roleLabel || 'Admin Console';
+  const email = profile?.email;
 
   return (
     <aside
       style={{ width: 240, flexShrink: 0, background: '#1A1D1F' }}
       className="h-full min-h-screen sticky top-0 flex flex-col overflow-y-auto"
     >
-      {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
         <div className="text-[10px] font-semibold tracking-widest uppercase text-[#B7D9DD] mb-1">
           India Healthcare
@@ -66,7 +80,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="text-white font-bold text-base leading-tight">Admin Console</div>
       </div>
 
-      {/* Nav groups */}
       <nav className="flex-1 py-3 overflow-y-auto">
         {NAV.map((group) => (
           <div key={group.group} className="mb-1">
@@ -74,7 +87,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               {group.group}
             </div>
             {group.items.map((item) => {
-              const active = pathname === item.href;
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.id}
@@ -98,17 +111,23 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      {/* Staff footer */}
-      <div className="px-5 py-4 border-t border-white/10">
+      <div className="px-5 py-4 border-t border-white/10 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-[#0B5C66] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            TK
+            {initials(displayName)}
           </div>
-          <div>
-            <div className="text-white text-xs font-semibold leading-tight">T. Krishnan</div>
-            <div className="text-[#7C8388] text-[10px]">Trust & Safety Analyst</div>
+          <div className="min-w-0">
+            <div className="text-white text-xs font-semibold leading-tight truncate">{displayName}</div>
+            <div className="text-[#7C8388] text-[10px] truncate">{email || roleLabel}</div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void signOutAdmin()}
+          className="w-full h-9 rounded-md text-[12px] font-semibold text-[#B7D9DD] hover:text-white hover:bg-white/10 transition-colors"
+        >
+          Sign out
+        </button>
       </div>
     </aside>
   );

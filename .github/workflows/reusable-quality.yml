@@ -262,6 +262,9 @@ jobs:
           E2E_CITIZEN_URL: ${{ inputs.e2e_citizen_url }}
           E2E_PROVIDER_URL: ${{ inputs.e2e_provider_url }}
           E2E_ADMIN_URL: ${{ inputs.e2e_admin_url }}
+          # Optional — set repo secrets E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for authenticated admin specs
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
         run: |
           npx playwright test \
             --project=citizen --project=provider --project=admin --project=platform \

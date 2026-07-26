@@ -151,11 +151,29 @@ export class AdminOpsController {
   @ApiOperation({ summary: 'A-03: Update citizen onboarding flag status' })
   async updateCitizenFlag(
     @Param('id') id: string,
-    @Body() body: { status: string; notes?: string },
+    @Body() body: { status: string; notes?: string; resolution?: string },
     @CurrentUser() user: AuthenticatedPrincipal,
   ) {
     await this.requireSupport(user.uid);
-    const data = await this.ops.updateCitizenFlag(id, body.status, user.uid, body.notes);
+    const data = await this.ops.updateCitizenFlag(
+      id,
+      body.status,
+      user.uid,
+      body.notes,
+      body.resolution,
+    );
+    return { data, meta: {} };
+  }
+
+  @Post('support/tickets/:id/case-access')
+  @ApiOperation({ summary: 'A-07/G5: Access linked case timeline with justification' })
+  async ticketCaseAccess(
+    @Param('id') id: string,
+    @Body() body: { justification: string },
+    @CurrentUser() user: AuthenticatedPrincipal,
+  ) {
+    await this.requireSupport(user.uid);
+    const data = await this.ops.getTicketCaseContext(id, body.justification, user.uid);
     return { data, meta: {} };
   }
 
@@ -256,6 +274,23 @@ export class AdminOpsController {
   async dismissSuggestion(@Param('id') id: string, @CurrentUser() user: AuthenticatedPrincipal) {
     await this.requireOps(user.uid);
     return { data: await this.ops.updateAiSuggestion(id, 'DISMISSED', user.uid), meta: {} };
+  }
+
+  // ── Provider directory (admin oversight) ───────────────────────────────────
+
+  @Get('providers/search')
+  @ApiOperation({ summary: 'Search live providers / hospital registry' })
+  async searchProviders(@Query('q') q: string | undefined, @CurrentUser() user: AuthenticatedPrincipal) {
+    await this.requireOps(user.uid);
+    const data = await this.ops.searchProviders(q);
+    return { data, meta: { count: data.length, q: q ?? null } };
+  }
+
+  @Get('providers/:orgId')
+  @ApiOperation({ summary: 'Provider org detail for admin oversight (audited)' })
+  async getProviderOrg(@Param('orgId') orgId: string, @CurrentUser() user: AuthenticatedPrincipal) {
+    await this.requireOps(user.uid);
+    return { data: await this.ops.getProviderOrg(orgId, user.uid), meta: {} };
   }
 
   // ── Role helpers ───────────────────────────────────────────────────────────

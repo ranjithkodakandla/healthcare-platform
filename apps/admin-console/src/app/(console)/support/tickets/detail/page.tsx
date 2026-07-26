@@ -26,21 +26,38 @@ function statusVariant(s: string): 'warning' | 'info' | 'success' | 'neutral' {
 function TicketDetailContent() {
   const params = useSearchParams();
   const id = params.get('id') ?? '';
+  const from = params.get('from');
+  const backHref =
+    from === 'provider' ? '/support/provider-tickets' : '/support/tickets';
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [justification, setJustification] = useState('');
+  const [caseCtx, setCaseCtx] = useState<{
+    case: { id: string; caseNumber: string; status: string; caseType: string } | null;
+    timeline: Array<{ id: string; type: string; createdAt: string }>;
+    note: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      setTicket(null);
+      setError('Select a ticket from the queue to view details.');
+      return;
+    }
     try {
       const res = await adminApi.support.getTicket(id);
       setTicket(res.data);
       setNote(res.data.internalNotes ?? '');
       setError(null);
     } catch (err: unknown) {
+      setTicket(null);
       if (err instanceof ApiError && err.isUnauthorized) {
-        setError('Please sign in again to continue');
+        return;
+      }
+      if (err instanceof ApiError && err.isNotFound) {
+        setError('Ticket not found. It may have been removed or the link is invalid.');
       } else {
         setError(err instanceof Error ? err.message : 'Failed to load ticket');
       }
@@ -75,6 +92,29 @@ function TicketDetailContent() {
     }
   };
 
+  const loadCaseContext = async () => {
+    if (!ticket) return;
+    if (justification.trim().length < 8) {
+      setError('Access justification must be at least 8 characters (G5 / GT-07)');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await adminApi.support.caseAccess(ticket.id, justification.trim());
+      setTicket(res.data.ticket);
+      setCaseCtx({
+        case: res.data.case,
+        timeline: res.data.timeline,
+        note: res.data.note,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Case access failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <TopBar
@@ -82,11 +122,15 @@ function TicketDetailContent() {
         screenId="A-07"
         ref_="G5, FR-ADM-SUP-001"
         slug="support/tickets/detail"
-        actions={<Link href="/support/tickets"><Button variant="outline" size="sm">← Back to queue</Button></Link>}
+        actions={
+          <Link href={backHref}>
+            <Button variant="outline" size="sm">← Back to queue</Button>
+          </Link>
+        }
       />
 
       {error && (
-        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }}>
+        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }} role="alert">
           {error}
         </div>
       )}
@@ -118,7 +162,14 @@ function TicketDetailContent() {
             </Card>
 
             <Card padding="md">
-              <div className="text-[13px] font-semibold text-[#1A1D1F] mb-2">Internal note</div>
+              <div className="text-[13px] font-semibold text-[#1A1D1F] mb-2">Internal notes</div>
+              {ticket.internalNotes ? (
+                <div className="mb-3 rounded-md px-3 py-2 text-[13px] text-[#4A5054] whitespace-pre-wrap" style={{ background: '#F2F4F5' }}>
+                  {ticket.internalNotes}
+                </div>
+              ) : (
+                <div className="mb-3 text-[12px] text-[#7C8388]">No notes yet.</div>
+              )}
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -141,6 +192,51 @@ function TicketDetailContent() {
               <div className="text-[12px] text-[#7C8388] mt-3">
                 Updated {new Date(ticket.updatedAt).toLocaleString('en-IN')}
               </div>
+            </Card>
+
+            <Card padding="md">
+              <div className="text-[13px] font-semibold text-[#1A1D1F] mb-2">Case access (G5)</div>
+              <p className="text-[12px] text-[#7C8388] mb-2">
+                Enter a reason for access before viewing linked case timeline. Access is audited.
+              </p>
+              {ticket.accessJustification && (
+                <div className="mb-2 text-[11px] text-[#0B5C66]">
+                  Last justification: {ticket.accessJustification}
+                </div>
+              )}
+              <textarea
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                className="w-full min-h-[72px] border border-[#C7CDD0] rounded-md p-2 text-[13px] mb-2"
+                placeholder="Reason for accessing case data…"
+              />
+              <Button size="sm" onClick={() => void loadCaseContext()} disabled={saving}>
+                Load case context
+              </Button>
+              {caseCtx && (
+                <div className="mt-3 space-y-2 text-[12px]">
+                  {caseCtx.case ? (
+                    <>
+                      <div className="font-semibold text-[#1A1D1F]">
+                        {caseCtx.case.caseNumber} · {caseCtx.case.status} · {caseCtx.case.caseType}
+                      </div>
+                      <div className="text-[11px] font-semibold text-[#7C8388] uppercase">Timeline</div>
+                      <ul className="space-y-1 max-h-48 overflow-y-auto">
+                        {caseCtx.timeline.length === 0 && (
+                          <li className="text-[#7C8388]">No timeline events</li>
+                        )}
+                        {caseCtx.timeline.map((ev) => (
+                          <li key={ev.id} className="text-[#4A5054]">
+                            {new Date(ev.createdAt).toLocaleString('en-IN')} — {ev.type}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <div className="text-[#7C8388]">{caseCtx.note ?? 'No linked case'}</div>
+                  )}
+                </div>
+              )}
             </Card>
           </div>
         </div>

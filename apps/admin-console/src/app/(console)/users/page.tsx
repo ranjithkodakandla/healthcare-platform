@@ -18,6 +18,8 @@ const INVITE_ROLES = [
   'CONSOLE_ADMINISTRATOR',
 ];
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
 function formatRelative(dateStr: string): string {
   const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
   if (mins < 1) return 'Just now';
@@ -33,7 +35,11 @@ export default function UsersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('SUPPORT_AGENT');
+  const [inviteFieldError, setInviteFieldError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [manageUser, setManageUser] = useState<ConsoleUserRow | null>(null);
+  const [manageRole, setManageRole] = useState('SUPPORT_AGENT');
+  const [manageBusy, setManageBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -42,10 +48,10 @@ export default function UsersPage() {
       setError(null);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.isUnauthorized) {
-        setError('Please sign in again to continue');
-      } else {
-        setError(err instanceof Error ? err.message : 'Failed to load console users');
+        // request() redirects to /login
+        return;
       }
+      setError(err instanceof Error ? err.message : 'Failed to load console users');
     } finally {
       setLoading(false);
     }
@@ -55,11 +61,59 @@ export default function UsersPage() {
     load();
   }, [load]);
 
+  const openManage = (u: ConsoleUserRow) => {
+    setManageUser(u);
+    setManageRole(u.role);
+    setError(null);
+  };
+
+  const saveManage = async () => {
+    if (!manageUser) return;
+    setManageBusy(true);
+    setError(null);
+    try {
+      await adminApi.users.update(manageUser.id, { role: manageRole });
+      setManageUser(null);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setManageBusy(false);
+    }
+  };
+
+  const setUserStatus = async (status: 'ACTIVE' | 'DEACTIVATED') => {
+    if (!manageUser) return;
+    const ok = window.confirm(
+      status === 'DEACTIVATED'
+        ? `Deactivate ${manageUser.email}? They will lose console access.`
+        : `Reactivate ${manageUser.email}?`,
+    );
+    if (!ok) return;
+    setManageBusy(true);
+    setError(null);
+    try {
+      await adminApi.users.update(manageUser.id, { status });
+      setManageUser(null);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Status update failed');
+    } finally {
+      setManageBusy(false);
+    }
+  };
+
   const handleInvite = async () => {
-    if (!inviteEmail.trim() || inviting) return;
+    const email = inviteEmail.trim();
+    if (!email || inviting) return;
+    if (!EMAIL_RE.test(email)) {
+      setInviteFieldError('Enter a valid email address (e.g. staff@sahayak.health)');
+      return;
+    }
+    setInviteFieldError(null);
     setInviting(true);
     try {
-      await adminApi.users.create(inviteEmail.trim(), inviteRole);
+      await adminApi.users.create(email, inviteRole);
       setInviteOpen(false);
       setInviteEmail('');
       await load();
@@ -90,19 +144,68 @@ export default function UsersPage() {
         </div>
       )}
 
+      {manageUser && (
+        <Card padding="md" className="mb-4">
+          <div className="text-[13px] font-semibold text-[#1A1D1F] mb-1">Manage staff</div>
+          <div className="text-[12px] text-[#7C8388] mb-3">{manageUser.email}</div>
+          <div className="flex gap-3 flex-wrap items-end">
+            <div className="min-w-[220px]">
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1">Role</label>
+              <select
+                value={manageRole}
+                onChange={(e) => setManageRole(e.target.value)}
+                className="w-full h-9 px-3 rounded-md border border-[#E7EBEC] text-[13px] bg-white"
+              >
+                {INVITE_ROLES.map((r) => (
+                  <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>
+                ))}
+              </select>
+            </div>
+            <Button size="sm" onClick={() => void saveManage()} disabled={manageBusy}>
+              Save role
+            </Button>
+            {(manageUser.status ?? 'ACTIVE') === 'ACTIVE' ? (
+              <Button size="sm" variant="danger" onClick={() => void setUserStatus('DEACTIVATED')} disabled={manageBusy}>
+                Deactivate
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => void setUserStatus('ACTIVE')} disabled={manageBusy}>
+                Reactivate
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setManageUser(null)} disabled={manageBusy}>
+              Close
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {inviteOpen && (
         <Card padding="md" className="mb-4">
           <div className="text-[13px] font-semibold text-[#1A1D1F] mb-3">Invite console staff</div>
           <div className="flex gap-3 flex-wrap items-end">
             <div className="flex-1 min-w-[200px]">
-              <label className="text-[11px] text-[#7C8388] font-medium block mb-1">Email</label>
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1" htmlFor="invite-email">
+                Email
+              </label>
               <input
+                id="invite-email"
                 type="email"
+                required
                 value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value);
+                  setInviteFieldError(null);
+                }}
                 className="w-full h-9 px-3 rounded-md border border-[#E7EBEC] text-[13px]"
                 placeholder="staff@sahayak.health"
+                aria-invalid={Boolean(inviteFieldError)}
               />
+              {inviteFieldError && (
+                <div className="mt-1 text-[12px] text-[#C62E2E]" role="alert">
+                  {inviteFieldError}
+                </div>
+              )}
             </div>
             <div className="min-w-[220px]">
               <label className="text-[11px] text-[#7C8388] font-medium block mb-1">Role</label>
@@ -151,6 +254,7 @@ export default function UsersPage() {
               const name = u.email.split('@')[0].replace(/[._]/g, ' ');
               const initials = name.split(' ').map((n) => n[0]?.toUpperCase() ?? '').slice(0, 2).join('');
               const linked = Boolean(u.firebaseUid);
+              const deactivated = (u.status ?? 'ACTIVE') === 'DEACTIVATED';
               return (
                 <tr key={u.id} className="border-b border-[#E7EBEC] bg-white last:border-0">
                   <td className="px-5 py-3">
@@ -166,8 +270,8 @@ export default function UsersPage() {
                   </td>
                   <td className="px-5 py-3 text-[#4A5054]">{ROLE_LABEL[u.role] ?? u.role}</td>
                   <td className="px-5 py-3">
-                    <Badge variant={linked ? 'success' : 'warning'}>
-                      {linked ? 'Active' : 'Invited'}
+                    <Badge variant={deactivated ? 'danger' : linked ? 'success' : 'warning'}>
+                      {deactivated ? 'Deactivated' : linked ? 'Active' : 'Invited'}
                     </Badge>
                   </td>
                   <td className="px-5 py-3">
@@ -177,7 +281,7 @@ export default function UsersPage() {
                   </td>
                   <td className="px-5 py-3 text-[#7C8388]">{formatRelative(u.updatedAt)}</td>
                   <td className="px-5 py-3">
-                    <Button variant="outline" size="sm" disabled>
+                    <Button variant="outline" size="sm" onClick={() => openManage(u)}>
                       Manage
                     </Button>
                   </td>

@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { ConsoleRole, OnboardingStage, Role } from '@sahayak/shared-constants';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { RolesGuard } from '../shared-services/auth/roles.guard';
@@ -11,6 +12,8 @@ import { ConsoleUserService } from './console-user.service';
 import { CreateProviderApplicationDto } from './dto/create-provider-application.dto';
 import { CompleteStageDto } from './dto/complete-stage.dto';
 import { CreateConsoleUserDto } from './dto/create-console-user.dto';
+import { RejectApplicationDto } from './dto/reject-application.dto';
+import { UpdateConsoleUserDto } from './dto/update-console-user.dto';
 
 // G4/G9 minimal onboarding slice. `Role.ADMIN` (RolesGuard) gates "is this an
 // authenticated Console user at all"; the finer-grained `ConsoleRole` check inside
@@ -42,6 +45,10 @@ export class AdminController {
       providerType: body.providerType,
       legalName: body.legalName,
       actor: user.uid,
+      orgId: body.orgId,
+      portalEmail: body.portalEmail,
+      portalPassword: body.portalPassword,
+      city: body.city,
     });
 
     return { data: application, meta: {}, errors: [] };
@@ -56,7 +63,40 @@ export class AdminController {
     ]);
 
     const application = await this.onboarding.getApplication(id);
-    return { data: application, meta: {}, errors: [] };
+    const nextStage = this.onboarding.nextPendingStage(application.stages);
+    const portalLive = await this.onboarding.isPortalLive(id);
+    const documents = this.onboarding.listVerificationDocuments(application);
+    const checklist = this.onboarding.credentialChecklist(application.providerType);
+    return {
+      data: {
+        ...application,
+        currentStage: application.status,
+        nextStage,
+        portalLive,
+        documents,
+        checklist,
+      },
+      meta: {},
+      errors: [],
+    };
+  }
+
+  @Get('provider-applications/:id/documents/:docKey')
+  @Header('Content-Type', 'application/pdf')
+  async downloadDocument(
+    @Param('id') id: string,
+    @Param('docKey') docKey: string,
+    @CurrentUser() user: AuthenticatedPrincipal,
+    @Res() res: Response,
+  ) {
+    await this.consoleUsers.requireConsoleRole(user.uid, [
+      ConsoleRole.PROVIDER_ONBOARDING_SPECIALIST,
+      ConsoleRole.CONSOLE_ADMINISTRATOR,
+      ConsoleRole.COMPLIANCE_OFFICER,
+    ]);
+    const { filename, body } = await this.onboarding.getVerificationDocument(id, docKey);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(body);
   }
 
   @Post('provider-applications/:id/stages/:stage/approve')
@@ -74,14 +114,36 @@ export class AdminController {
     await this.onboarding.completeStage({
       applicationId: id,
       stage,
-      reviewerId: body.reviewerId,
+      reviewerId: body.reviewerId || user.uid,
       notes: body.notes,
+      checklistComplete: body.checklistComplete,
     });
 
     const application = await this.onboarding.getApplication(id);
     const portalLive = await this.onboarding.isPortalLive(id);
+    const nextStage = this.onboarding.nextPendingStage(application.stages);
 
-    return { data: { application, portalLive }, meta: {}, errors: [] };
+    return { data: { application: { ...application, nextStage }, portalLive }, meta: {}, errors: [] };
+  }
+
+  @Post('provider-applications/:id/reject')
+  async rejectApplication(
+    @Param('id') id: string,
+    @Body() body: RejectApplicationDto,
+    @CurrentUser() user: AuthenticatedPrincipal,
+  ) {
+    await this.consoleUsers.requireConsoleRole(user.uid, [
+      ConsoleRole.PROVIDER_ONBOARDING_SPECIALIST,
+      ConsoleRole.CONSOLE_ADMINISTRATOR,
+    ]);
+
+    const application = await this.onboarding.rejectApplication({
+      applicationId: id,
+      reviewerId: user.uid,
+      notes: body.notes,
+    });
+
+    return { data: application, meta: {}, errors: [] };
   }
 
   @Get('console-users')
@@ -107,5 +169,21 @@ export class AdminController {
     });
 
     return { data: created, meta: {}, errors: [] };
+  }
+
+  @Patch('console-users/:id')
+  async updateConsoleUser(
+    @Param('id') id: string,
+    @Body() body: UpdateConsoleUserDto,
+    @CurrentUser() user: AuthenticatedPrincipal,
+  ) {
+    await this.consoleUsers.requireConsoleRole(user.uid, [ConsoleRole.CONSOLE_ADMINISTRATOR]);
+    const updated = await this.consoleUsers.updateConsoleUser({
+      id,
+      role: body.role,
+      status: body.status,
+      actor: user.uid,
+    });
+    return { data: updated, meta: {}, errors: [] };
   }
 }

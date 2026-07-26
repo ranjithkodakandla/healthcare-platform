@@ -15,6 +15,33 @@ export function saveAdminToken(token: string): void {
   localStorage.setItem('admin_token', token);
 }
 
+export interface AdminProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  roleLabel: string;
+}
+
+export function saveAdminProfile(profile: AdminProfile): void {
+  localStorage.setItem('admin_profile', JSON.stringify(profile));
+}
+
+export function getAdminProfile(): AdminProfile | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem('admin_profile');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AdminProfile;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAdminSession(): void {
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_profile');
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -24,6 +51,34 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
   get isUnauthorized() { return this.status === 401; }
+  get isNotFound() { return this.status === 404; }
+}
+
+function messageFromErrorBody(status: number, errBody: string): string {
+  // Never surface raw Nest/stack payloads for server errors.
+  if (status >= 500) return 'Something went wrong. Please try again.';
+  if (!errBody) {
+    if (status === 404) return 'Not found';
+    if (status === 400) return 'Invalid request';
+    return `Request failed (${status})`;
+  }
+  try {
+    const parsed = JSON.parse(errBody) as { message?: string | string[] };
+    if (typeof parsed.message === 'string' && parsed.message.trim()) return parsed.message;
+    if (Array.isArray(parsed.message) && parsed.message.length) return parsed.message.join(', ');
+  } catch {
+    /* plain text body */
+  }
+  if (status === 404) return 'Not found';
+  return errBody.length > 180 ? `${errBody.slice(0, 180)}…` : errBody;
+}
+
+function redirectToLogin(): void {
+  if (typeof window === 'undefined') return;
+  clearAdminSession();
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.assign('/login');
+  }
 }
 
 // ── Request helper ─────────────────────────────────────────────────────────────
@@ -40,8 +95,11 @@ async function request<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string
     cache: 'no-store',
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      redirectToLogin();
+    }
     const errBody = await res.text().catch(() => '');
-    throw new ApiError(res.status, `${method} ${path}: ${res.status} ${errBody}`);
+    throw new ApiError(res.status, messageFromErrorBody(res.status, errBody));
   }
   return res.json();
 }
@@ -68,9 +126,26 @@ export interface ProviderApplication {
   providerType: string;
   legalName: string;
   currentStage: string;
+  orgId?: string | null;
+  portalEmail?: string | null;
   isPortalLive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProviderApplicationDetail extends ProviderApplication {
+  stages: Array<{
+    id: string;
+    stage: string;
+    status: string;
+    reviewerId?: string | null;
+    notes?: string | null;
+    completedAt?: string | null;
+  }>;
+  nextStage?: string | null;
+  portalLive?: boolean;
+  documents?: Array<{ key: string; name: string; contentType: string }>;
+  checklist?: Array<{ key: string; label: string }>;
 }
 
 // ── Admin API ──────────────────────────────────────────────────────────────────
@@ -79,6 +154,7 @@ export interface ConsoleUserRow {
   id: string;
   email: string;
   role: string;
+  status?: string;
   firebaseUid: string | null;
   createdAt: string;
   updatedAt: string;
@@ -96,6 +172,7 @@ export interface SupportTicket {
   assignedAgent: string | null;
   body: string | null;
   internalNotes: string | null;
+  accessJustification?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -151,8 +228,67 @@ export const adminApi = {
     },
   },
   providers: {
-    approveStage(id: string, stage: string, reviewerId: string, notes?: string): Promise<unknown> {
-      return request('POST', `/v1/admin/provider-applications/${id}/stages/${stage}/approve`, { reviewerId, notes });
+    create(body: {
+      providerType: string;
+      legalName: string;
+      orgId?: string;
+      portalEmail?: string;
+      portalPassword?: string;
+      city?: string;
+    }): Promise<{ data: ProviderApplication }> {
+      return request('POST', '/v1/admin/provider-applications', body);
+    },
+    get(id: string): Promise<{ data: ProviderApplicationDetail }> {
+      return request('GET', `/v1/admin/provider-applications/${id}`);
+    },
+    approveStage(
+      id: string,
+      stage: string,
+      reviewerId: string,
+      notes?: string,
+      checklistComplete?: boolean,
+    ): Promise<unknown> {
+      return request('POST', `/v1/admin/provider-applications/${id}/stages/${stage}/approve`, {
+        reviewerId,
+        notes,
+        checklistComplete,
+      });
+    },
+    reject(id: string, notes?: string): Promise<{ data: ProviderApplication }> {
+      return request('POST', `/v1/admin/provider-applications/${id}/reject`, { notes });
+    },
+    documentUrl(id: string, docKey: string): string {
+      const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+      return `${base}/v1/admin/provider-applications/${encodeURIComponent(id)}/documents/${encodeURIComponent(docKey)}`;
+    },
+    search(q?: string): Promise<{ data: ProviderDirectoryRow[]; meta: { count: number } }> {
+      const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+      return request('GET', `/v1/admin/providers/search${qs}`);
+    },
+    getOrg(orgId: string): Promise<{ data: ProviderOrgDetail }> {
+      return request('GET', `/v1/admin/providers/${encodeURIComponent(orgId)}`);
+    },
+    /** Hospital-admin ops via provider APIs (Role.ADMIN allowed). */
+    hospitalDashboard(orgId: string): Promise<{ data: unknown }> {
+      return request('GET', `/v1/providers/${encodeURIComponent(orgId)}/dashboard`);
+    },
+    hospitalBeds(orgId: string): Promise<{ data: Array<{
+      category: string;
+      totalCount: number;
+      availableCount: number;
+      occupiedCount: number;
+      stalenessStatus: string;
+    }> }> {
+      return request('GET', `/v1/providers/${encodeURIComponent(orgId)}/beds`);
+    },
+    updateHospitalBeds(
+      orgId: string,
+      updates: Array<{ category: string; totalCount: number; availableCount: number }>,
+    ): Promise<unknown> {
+      return request('PUT', `/v1/providers/${encodeURIComponent(orgId)}/beds`, { updates });
+    },
+    hospitalIncomingQueue(orgId: string): Promise<{ data: unknown[] }> {
+      return request('GET', `/v1/providers/${encodeURIComponent(orgId)}/incoming-queue`);
     },
   },
   users: {
@@ -161,6 +297,9 @@ export const adminApi = {
     },
     create(email: string, role: string): Promise<{ data: ConsoleUserRow }> {
       return request('POST', '/v1/admin/console-users', { email, role });
+    },
+    update(id: string, body: { role?: string; status?: string }): Promise<{ data: ConsoleUserRow }> {
+      return request('PATCH', `/v1/admin/console-users/${id}`, body);
     },
   },
   support: {
@@ -186,6 +325,19 @@ export const adminApi = {
     },
     updateTicket(id: string, body: Partial<{ status: string; priority: string; assignedAgent: string; internalNotes: string }>): Promise<{ data: SupportTicket }> {
       return request('PATCH', `/v1/admin/support/tickets/${id}`, body);
+    },
+    caseAccess(
+      id: string,
+      justification: string,
+    ): Promise<{
+      data: {
+        ticket: SupportTicket;
+        case: { id: string; caseNumber: string; status: string; caseType: string } | null;
+        timeline: Array<{ id: string; type: string; createdAt: string; payload?: unknown }>;
+        note: string | null;
+      };
+    }> {
+      return request('POST', `/v1/admin/support/tickets/${id}/case-access`, { justification });
     },
   },
   issues: {
@@ -220,8 +372,17 @@ export const adminApi = {
     list(): Promise<{ data: CitizenOnboardingFlag[]; meta: { count: number } }> {
       return request('GET', '/v1/admin/citizen-onboarding/queue');
     },
-    update(id: string, status: string, notes?: string): Promise<{ data: CitizenOnboardingFlag }> {
-      return request('PATCH', `/v1/admin/citizen-onboarding/queue/${id}`, { status, notes });
+    update(
+      id: string,
+      status: string,
+      notes?: string,
+      resolution?: string,
+    ): Promise<{ data: CitizenOnboardingFlag }> {
+      return request('PATCH', `/v1/admin/citizen-onboarding/queue/${id}`, {
+        status,
+        notes,
+        resolution,
+      });
     },
   },
   sla: {
@@ -274,6 +435,29 @@ export const adminApi = {
   },
 };
 
+export interface ProviderDirectoryRow {
+  id: string;
+  hospitalId: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  providerType: string;
+  isActive: boolean;
+}
+
+export interface ProviderOrgDetail {
+  registry: ProviderDirectoryRow;
+  application: ProviderApplication | null;
+  beds: Array<{
+    category: string;
+    totalCount: number;
+    availableCount: number;
+    occupiedCount: number;
+    stalenessStatus: string;
+  }>;
+}
+
 export interface CitizenOnboardingFlag {
   id: string;
   accountRef: string;
@@ -281,6 +465,7 @@ export interface CitizenOnboardingFlag {
   issue: string;
   issueLabel: string;
   status: string;
+  resolution?: string | null;
   notes: string | null;
   flaggedAt: string;
 }

@@ -102,6 +102,7 @@ export const ADMIN_SCREENS: ScreenDef[] = [
   { id: 'A-17', path: '/ai-assistant', requiresAuth: true, tags: ['ai'] },
   { id: 'A-18', path: '/governance', requiresAuth: true, tags: ['config', 'audit'] },
   { id: 'A-19', path: '/support/provider-tickets', requiresAuth: true, tags: ['support'] },
+  { id: 'A-20', path: '/providers', requiresAuth: true, tags: ['providers'], titleHint: /Providers/i },
 ];
 
 export const SCREENS_BY_APP: Record<AppId, ScreenDef[]> = {

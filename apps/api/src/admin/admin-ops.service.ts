@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HealthService } from '../health/health.service';
 import { AuditService } from '../shared-services/audit/audit.service';
+
+const CITIZEN_RESOLUTIONS = ['CLEARED', 'MERGED', 'DISMISSED'] as const;
 
 export interface CreateTicketInput {
   requester: string;
@@ -51,10 +53,16 @@ export class AdminOpsService {
   }
 
   async getTicket(id: string) {
+    const key = id?.trim();
+    if (!key) throw new NotFoundException('SupportTicket not found');
+
+    // Prisma UUID columns throw on non-UUID equality — only OR on id when valid.
+    const looksLikeUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
     const ticket = await this.prisma.supportTicket.findFirst({
-      where: { OR: [{ id }, { ticketNumber: id }] },
+      where: looksLikeUuid ? { OR: [{ id: key }, { ticketNumber: key }] } : { ticketNumber: key },
     });
-    if (!ticket) throw new NotFoundException(`SupportTicket ${id} not found`);
+    if (!ticket) throw new NotFoundException(`SupportTicket ${key} not found`);
     return ticket;
   }
 
@@ -275,21 +283,107 @@ export class AdminOpsService {
     });
   }
 
-  async updateCitizenFlag(id: string, status: string, actor: string, notes?: string) {
+  async updateCitizenFlag(
+    id: string,
+    status: string,
+    actor: string,
+    notes?: string,
+    resolution?: string,
+  ) {
     const existing = await this.prisma.citizenOnboardingFlag.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`CitizenOnboardingFlag ${id} not found`);
+
+    const allowedStatus = ['PENDING', 'IN_REVIEW', 'RESOLVED'];
+    if (!allowedStatus.includes(status)) {
+      throw new BadRequestException(`status must be one of ${allowedStatus.join(', ')}`);
+    }
+
+    let nextResolution: string | null | undefined = resolution;
+    if (status === 'RESOLVED') {
+      const res = resolution ?? existing.resolution;
+      if (!res || !CITIZEN_RESOLUTIONS.includes(res as (typeof CITIZEN_RESOLUTIONS)[number])) {
+        throw new BadRequestException(
+          `resolution is required when resolving (one of ${CITIZEN_RESOLUTIONS.join(', ')})`,
+        );
+      }
+      if (!notes?.trim() && !existing.notes?.trim()) {
+        throw new BadRequestException('notes are required when resolving a citizen onboarding flag');
+      }
+      nextResolution = res;
+    } else if (resolution != null) {
+      nextResolution = resolution;
+    }
+
     const row = await this.prisma.citizenOnboardingFlag.update({
       where: { id },
-      data: { status, ...(notes != null ? { notes } : {}) },
+      data: {
+        status,
+        ...(notes != null ? { notes } : {}),
+        ...(nextResolution !== undefined ? { resolution: nextResolution } : {}),
+      },
     });
     await this.audit.record({
       actor,
       action: 'CITIZEN_ONBOARDING_FLAG_UPDATED',
       entityType: 'CitizenOnboardingFlag',
       entityId: row.id,
-      metadata: { from: existing.status, to: status },
+      metadata: {
+        from: existing.status,
+        to: status,
+        resolution: row.resolution,
+      },
     });
     return row;
+  }
+
+  /** G5: load linked case context after recording support access justification. */
+  async getTicketCaseContext(ticketId: string, justification: string, actor: string) {
+    const reason = justification?.trim();
+    if (!reason || reason.length < 8) {
+      throw new BadRequestException('access justification must be at least 8 characters');
+    }
+
+    const ticket = await this.getTicket(ticketId);
+    const updated = await this.prisma.supportTicket.update({
+      where: { id: ticket.id },
+      data: { accessJustification: reason },
+    });
+
+    await this.audit.record({
+      actor,
+      action: 'SUPPORT_CASE_ACCESS',
+      entityType: 'SupportTicket',
+      entityId: ticket.id,
+      metadata: {
+        entityRef: ticket.entityRef,
+        justification: reason,
+      },
+    });
+
+    const ref = ticket.entityRef?.trim();
+    if (!ref) {
+      return { ticket: updated, case: null, timeline: [], note: 'No entityRef on this ticket' };
+    }
+
+    const kase = await this.prisma.case.findFirst({
+      where: { OR: [{ id: ref }, { caseNumber: ref }] },
+    });
+    if (!kase) {
+      return {
+        ticket: updated,
+        case: null,
+        timeline: [],
+        note: `No case found for entityRef ${ref}`,
+      };
+    }
+
+    const timeline = await this.prisma.caseTimelineEvent.findMany({
+      where: { caseId: kase.id },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    });
+
+    return { ticket: updated, case: kase, timeline, note: null };
   }
 
   // ── A-10 / A-15 SLA + Analytics (shared compliance computation) ────────────
@@ -544,6 +638,56 @@ export class AdminOpsService {
       metadata: { status: row.status, audience: row.audience },
     });
     return row;
+  }
+
+  // ── Admin provider directory (search + ops oversight) ──────────────────────
+
+  async searchProviders(q?: string) {
+    const term = q?.trim();
+    return this.prisma.hospitalRegistry.findMany({
+      where: {
+        isActive: true,
+        ...(term
+          ? {
+              OR: [
+                { name: { contains: term, mode: 'insensitive' } },
+                { hospitalId: { contains: term, mode: 'insensitive' } },
+                { city: { contains: term, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { name: 'asc' },
+      take: 50,
+    });
+  }
+
+  async getProviderOrg(orgId: string, actor: string) {
+    const registry = await this.prisma.hospitalRegistry.findUnique({
+      where: { hospitalId: orgId },
+    });
+    if (!registry) throw new NotFoundException(`Provider ${orgId} not found`);
+
+    const [application, beds] = await Promise.all([
+      this.prisma.providerApplication.findFirst({
+        where: { orgId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.hospitalBedInventory.findMany({
+        where: { hospitalId: orgId },
+        orderBy: { category: 'asc' },
+      }),
+    ]);
+
+    await this.audit.record({
+      actor,
+      action: 'ADMIN_PROVIDER_VIEWED',
+      entityType: 'HospitalRegistry',
+      entityId: orgId,
+      metadata: { name: registry.name },
+    });
+
+    return { registry, application, beds };
   }
 
   // ── A-17 AI Ops Assistant ──────────────────────────────────────────────────

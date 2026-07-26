@@ -13,7 +13,12 @@ export default function KnowledgeBasePage() {
   const [active, setActive] = useState<string>('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('Support playbooks');
+  const [body, setBody] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -22,9 +27,8 @@ export default function KnowledgeBasePage() {
       setCategories(res.meta.categories ?? []);
       setError(null);
     } catch (err: unknown) {
-      setError(err instanceof ApiError && err.isUnauthorized
-        ? 'Sign in required (Firebase admin session)'
-        : err instanceof Error ? err.message : 'Failed to load articles');
+      if (err instanceof ApiError && err.isUnauthorized) return;
+      setError(err instanceof Error ? err.message : 'Failed to load articles');
     } finally {
       setLoading(false);
     }
@@ -37,16 +41,28 @@ export default function KnowledgeBasePage() {
     [articles, active],
   );
 
-  async function handleNew() {
+  const selected = articles.find((a) => a.id === selectedId) ?? null;
+
+  async function handleCreate() {
+    if (!title.trim() || !body.trim()) {
+      setError('Title and body are required');
+      return;
+    }
     setCreating(true);
+    setError(null);
     try {
-      await adminApi.knowledgeBase.create({
-        title: 'New playbook article',
-        category: categories[0] ?? 'Support playbooks',
-        body: 'Draft content — replace with operational guidance.',
+      const created = await adminApi.knowledgeBase.create({
+        title: title.trim(),
+        category: category.trim() || 'Support playbooks',
+        body: body.trim(),
         note: 'Created from Admin Console',
       });
+      setFormOpen(false);
+      setTitle('');
+      setBody('');
       await load();
+      const id = (created as { data?: { id?: string } })?.data?.id;
+      if (id) setSelectedId(id);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Create failed');
     } finally {
@@ -63,13 +79,48 @@ export default function KnowledgeBasePage() {
         screenId="A-11"
         ref_="G8"
         slug="knowledge-base"
-        actions={<Button size="sm" onClick={() => void handleNew()} disabled={creating}>{creating ? 'Creating…' : 'New article'}</Button>}
+        actions={
+          <Button size="sm" onClick={() => setFormOpen((v) => !v)}>
+            {formOpen ? 'Close form' : 'New article'}
+          </Button>
+        }
       />
       {error && (
-        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }}>
+        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }} role="alert">
           {error}
         </div>
       )}
+
+      {formOpen && (
+        <Card padding="md" className="mb-4">
+          <div className="text-[13px] font-semibold text-[#1A1D1F] mb-3">New playbook article</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1" htmlFor="kb-title">Title</label>
+              <input id="kb-title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full h-9 px-3 rounded-md border border-[#E7EBEC] text-[13px]" />
+            </div>
+            <div>
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1" htmlFor="kb-cat">Category</label>
+              <input id="kb-cat" value={category} onChange={(e) => setCategory(e.target.value)} list="kb-cats" className="w-full h-9 px-3 rounded-md border border-[#E7EBEC] text-[13px]" />
+              <datalist id="kb-cats">
+                {categories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div className="col-span-2">
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1" htmlFor="kb-body">Content</label>
+              <textarea id="kb-body" value={body} onChange={(e) => setBody(e.target.value)} rows={5} className="w-full px-3 py-2 rounded-md border border-[#E7EBEC] text-[13px]" placeholder="Operational guidance…" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <Button size="sm" onClick={() => void handleCreate()} disabled={creating}>
+              {creating ? 'Saving…' : 'Publish article'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <div className="flex gap-4">
         <aside className="w-52 shrink-0">
           <Card padding="sm">
@@ -93,16 +144,30 @@ export default function KnowledgeBasePage() {
           {loading && <p className="text-[13px] text-[#7C8388]">Loading…</p>}
           {!loading && filtered.length === 0 && <p className="text-[13px] text-[#7C8388]">No articles</p>}
           {filtered.map((a) => (
-            <Card key={a.id}>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388] mb-1">{a.category}</div>
-              <div className="text-[15px] font-bold text-[#1A1D1F] mb-1">{a.title}</div>
-              <div className="text-[12px] text-[#4A5054] mb-2 line-clamp-2">{a.body || '—'}</div>
-              <div className="flex justify-between text-[11px] text-[#7C8388]">
-                <span>Updated {new Date(a.updatedAt).toLocaleDateString()}</span>
-                <span>{a.note ?? ''}</span>
-              </div>
-            </Card>
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => setSelectedId(a.id)}
+              className="text-left"
+            >
+              <Card>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388] mb-1">{a.category}</div>
+                <div className="text-[15px] font-bold text-[#1A1D1F] mb-1">{a.title}</div>
+                <div className="text-[12px] text-[#4A5054] mb-2 line-clamp-2">{a.body || '—'}</div>
+                <div className="flex justify-between text-[11px] text-[#7C8388]">
+                  <span>Updated {new Date(a.updatedAt).toLocaleDateString()}</span>
+                  <span>{a.note ?? ''}</span>
+                </div>
+              </Card>
+            </button>
           ))}
+          {selected && (
+            <Card padding="md">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388] mb-1">{selected.category}</div>
+              <div className="text-[18px] font-bold text-[#1A1D1F] mb-3">{selected.title}</div>
+              <div className="text-[13px] text-[#4A5054] whitespace-pre-wrap">{selected.body}</div>
+            </Card>
+          )}
         </div>
       </div>
     </>

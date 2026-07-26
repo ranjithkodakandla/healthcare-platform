@@ -181,12 +181,15 @@ model ProviderApplication {
   providerType String   @map("provider_type") // HOSPITAL | DOCTOR | AMBULANCE_OPERATOR | PHARMACY | BLOOD_BANK | DIAGNOSTIC_CENTER | INSURER
   legalName    String   @map("legal_name")
   status       String   @default("APPLICATION_INTAKE") // mirrors the furthest-reached OnboardingStage
+  orgId        String?  @map("org_id") // Provider Portal Organization ID (e.g. hosp-apollo-blr)
+  portalEmail  String?  @map("portal_email") // Firebase email for hospital admin login
   version      Int      @default(1)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   stages ProviderOnboardingStage[]
 
+  @@index([orgId])
   @@map("provider_applications")
   @@schema("admin")
 }
@@ -222,6 +225,7 @@ model ConsoleUser {
   email        String   @unique
   role         String // SUPPORT_AGENT | CUSTOMER_SUCCESS_MANAGER | PROVIDER_ONBOARDING_SPECIALIST | TRUST_SAFETY_ANALYST | COMPLIANCE_OFFICER | PLATFORM_OPERATIONS_ENGINEER | CONSOLE_ADMINISTRATOR
   firebaseUid  String?  @unique @map("firebase_uid")
+  status       String   @default("ACTIVE") // ACTIVE | DEACTIVATED
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -242,6 +246,7 @@ model SupportTicket {
   assignedAgent String? @map("assigned_agent")
   body        String?
   internalNotes String? @map("internal_notes")
+  accessJustification String? @map("access_justification") // G5 / GT-07 support access reason
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -303,6 +308,7 @@ model CitizenOnboardingFlag {
   issue       String   // DUPLICATE_ACCOUNT | FAMILY_LINKAGE | ABHA_MISMATCH | OTHER
   issueLabel  String   @map("issue_label")
   status      String   @default("PENDING") // PENDING | IN_REVIEW | RESOLVED
+  resolution  String?  // CLEARED | MERGED | DISMISSED — set when status=RESOLVED (FR-ADM-CIT-001)
   notes       String?
   flaggedAt   DateTime @default(now()) @map("flagged_at")
   createdAt   DateTime @default(now()) @map("created_at")

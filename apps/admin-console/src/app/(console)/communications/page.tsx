@@ -20,6 +20,7 @@ export default function CommunicationsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -44,14 +45,22 @@ export default function CommunicationsPage() {
   async function submit(status: 'DRAFT' | 'SENT') {
     if (!title.trim() || !body.trim() || channels.length === 0) {
       setError('Title, body, and at least one channel are required');
+      setSuccess(null);
       return;
     }
     setBusy(true);
+    setError(null);
+    setSuccess(null);
     try {
       await adminApi.communications.create({ title, body, audience, channels, status });
       setTitle('');
       setBody('');
       await load();
+      setSuccess(
+        status === 'SENT'
+          ? 'Broadcast recorded. Outbound WhatsApp/SMS fan-out remains stubbed (M14) — check Recent broadcasts below.'
+          : 'Draft saved. It appears in Recent broadcasts.',
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -68,8 +77,13 @@ export default function CommunicationsPage() {
     <>
       <TopBar title="Communication Center" screenId="A-16" ref_="G13" slug="communications" />
       {error && (
-        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }}>
+        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#FBE3E3', color: '#C62E2E' }} role="alert">
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="mb-4 rounded-md px-4 py-3 text-[13px] font-medium" style={{ background: '#DEF3F5', color: '#0B5C66' }} role="status">
+          {success}
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">

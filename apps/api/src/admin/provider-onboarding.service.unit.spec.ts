@@ -8,11 +8,16 @@ describe('ProviderOnboardingService (unit)', () => {
       providerApplication: {
         create: jest.fn().mockResolvedValue({ id: 'app1' }),
         update: jest.fn(),
+        findUnique: jest.fn(),
       },
       providerOnboardingStage: {
         createMany: jest.fn(),
         findMany: jest.fn(),
         update: jest.fn(),
+      },
+      hospitalRegistry: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
       },
     };
     const prisma = {
@@ -21,8 +26,9 @@ describe('ProviderOnboardingService (unit)', () => {
       providerApplication: { findUnique: jest.fn() },
     };
     const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const config = { get: jest.fn().mockReturnValue(undefined) };
     return {
-      service: new ProviderOnboardingService(prisma as never, audit as never),
+      service: new ProviderOnboardingService(prisma as never, audit as never, config as never),
       prisma,
       tx,
     };
@@ -93,6 +99,30 @@ describe('ProviderOnboardingService (unit)', () => {
       stage: OnboardingStage.APPLICATION_INTAKE,
       reviewerId: 'r',
       notes: 'ok',
+    });
+
+    tx.providerOnboardingStage.findMany.mockResolvedValueOnce([
+      { id: 's1', stage: OnboardingStage.APPLICATION_INTAKE, status: OnboardingStageStatus.COMPLETE },
+      { id: 's2', stage: OnboardingStage.CREDENTIAL_VERIFICATION, status: OnboardingStageStatus.PENDING },
+    ]);
+    await expect(
+      service.completeStage({
+        applicationId: 'app1',
+        stage: OnboardingStage.CREDENTIAL_VERIFICATION,
+        reviewerId: 'r',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    tx.providerOnboardingStage.findMany.mockResolvedValueOnce([
+      { id: 's1', stage: OnboardingStage.APPLICATION_INTAKE, status: OnboardingStageStatus.COMPLETE },
+      { id: 's2', stage: OnboardingStage.CREDENTIAL_VERIFICATION, status: OnboardingStageStatus.PENDING },
+    ]);
+    await service.completeStage({
+      applicationId: 'app1',
+      stage: OnboardingStage.CREDENTIAL_VERIFICATION,
+      reviewerId: 'r',
+      checklistComplete: true,
+      notes: 'docs ok',
     });
   });
 

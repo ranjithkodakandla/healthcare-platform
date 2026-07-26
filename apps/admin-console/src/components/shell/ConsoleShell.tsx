@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
+import { getAdminToken } from '@/lib/api';
 
 function IconMenu() {
   return (
@@ -25,6 +26,15 @@ function IconClose() {
  */
 export function ConsoleShell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [authed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    if (!getAdminToken()) {
+      window.location.assign('/login');
+      return;
+    }
+    setAuthed(true);
+  }, []);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -41,6 +51,14 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
       document.body.style.overflow = '';
     };
   }, [drawerOpen]);
+
+  if (!authed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F2F4F5] text-[13px] text-[#7C8388]">
+        Checking session…
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#F2F4F5]">

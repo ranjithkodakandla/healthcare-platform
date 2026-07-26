@@ -19,7 +19,14 @@ describe('AdminOpsService (unit)', () => {
         update: jest.fn().mockResolvedValue({ id: 'i1', status: 'OPEN' }),
       },
       ambulanceRequest: { count: jest.fn().mockResolvedValue(2) },
-      hospitalBedInventory: { count: jest.fn().mockResolvedValue(1) },
+      hospitalBedInventory: {
+        count: jest.fn().mockResolvedValue(1),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      hospitalRegistry: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+      },
       featureFlag: {
         findMany: jest.fn().mockResolvedValue([{ key: 'x' }]),
         update: jest.fn().mockResolvedValue({ id: 'f1', key: 'x', enabled: true }),
@@ -47,7 +54,10 @@ describe('AdminOpsService (unit)', () => {
           },
         ]),
       },
-      providerApplication: { count: jest.fn().mockResolvedValue(1) },
+      providerApplication: {
+        count: jest.fn().mockResolvedValue(1),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       knowledgeArticle: {
         findMany: jest.fn().mockResolvedValue([
           { id: 'k1', category: 'Beds', title: 'A', updatedAt: new Date() },
@@ -82,8 +92,22 @@ describe('AdminOpsService (unit)', () => {
 
     prisma.supportTicket.findFirst.mockResolvedValueOnce(null);
     await expect(service.getTicket('missing')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.supportTicket.findFirst).toHaveBeenCalledWith({
+      where: { ticketNumber: 'missing' },
+    });
+
+    prisma.supportTicket.findFirst.mockResolvedValueOnce(null);
+    await expect(service.getTicket('nonexistent-id-123')).rejects.toBeInstanceOf(NotFoundException);
+
     prisma.supportTicket.findFirst.mockResolvedValueOnce({ id: 't1', ticketNumber: 'TCK-1' });
     await service.getTicket('TCK-1');
+
+    const uuid = '11111111-1111-4111-8111-111111111111';
+    prisma.supportTicket.findFirst.mockResolvedValueOnce({ id: uuid, ticketNumber: 'TCK-9' });
+    await service.getTicket(uuid);
+    expect(prisma.supportTicket.findFirst).toHaveBeenLastCalledWith({
+      where: { OR: [{ id: uuid }, { ticketNumber: uuid }] },
+    });
 
     await service.createTicket({
       requester: 'u',
@@ -95,6 +119,24 @@ describe('AdminOpsService (unit)', () => {
 
     prisma.supportTicket.findFirst.mockResolvedValueOnce({ id: 't1' });
     await service.updateTicket('t1', { status: 'OPEN', priority: 'HIGH', assignedAgent: 'a', internalNotes: 'n', actor: 'admin' });
+  });
+
+  it('searches providers and loads org detail', async () => {
+    const { service, prisma, audit } = build();
+    prisma.hospitalRegistry.findMany.mockResolvedValueOnce([{ hospitalId: 'hosp-1', name: 'Apollo' }]);
+    prisma.hospitalRegistry.findUnique.mockResolvedValueOnce({ hospitalId: 'hosp-1', name: 'Apollo' });
+    prisma.providerApplication.findFirst.mockResolvedValueOnce({ id: 'app1', orgId: 'hosp-1' });
+    prisma.hospitalBedInventory.findMany.mockResolvedValueOnce([
+      { category: 'ICU', totalCount: 10, availableCount: 2 },
+    ]);
+
+    const list = await service.searchProviders('Apollo');
+    expect(list).toHaveLength(1);
+    const detail = await service.getProviderOrg('hosp-1', 'admin');
+    expect(detail.registry.hospitalId).toBe('hosp-1');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'ADMIN_PROVIDER_VIEWED' }),
+    );
   });
 
   it('issues, monitoring, flags, config, audit, citizen flags', async () => {
@@ -127,9 +169,11 @@ describe('AdminOpsService (unit)', () => {
     await service.searchAudit();
     await service.listCitizenFlags();
     prisma.citizenOnboardingFlag.findUnique.mockResolvedValueOnce(null);
-    await expect(service.updateCitizenFlag('x', 'CLEARED', 'a')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.updateCitizenFlag('x', 'RESOLVED', 'a', 'ok', 'CLEARED')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     prisma.citizenOnboardingFlag.findUnique.mockResolvedValueOnce({ id: 'cf1', status: 'PENDING' });
-    await service.updateCitizenFlag('cf1', 'CLEARED', 'a', 'ok');
+    await service.updateCitizenFlag('cf1', 'RESOLVED', 'a', 'Reviewed duplicate — cleared', 'CLEARED');
   });
 
   it('SLA analytics, knowledge, workflows, broadcasts, AI ops', async () => {

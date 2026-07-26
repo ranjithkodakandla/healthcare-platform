@@ -52,7 +52,11 @@ describe('AdminOpsController (unit)', () => {
     await controller.searchAudit('q', '10', user as never);
     await controller.searchAudit(undefined, undefined, user as never);
     await controller.listCitizenFlags(user as never);
-    await controller.updateCitizenFlag('id', { status: 'CLEARED' }, user as never);
+    await controller.updateCitizenFlag(
+      'id',
+      { status: 'RESOLVED', notes: 'ok', resolution: 'CLEARED' },
+      user as never,
+    );
     await controller.slaSnapshot(user as never);
     await controller.analyticsSummary(user as never);
     await controller.listArticles(user as never);
