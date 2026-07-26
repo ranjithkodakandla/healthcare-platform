@@ -25,11 +25,12 @@ export default defineConfig({
   ],
   outputDir: 'test-results',
   use: {
-    trace: 'on',
-    screenshot: 'on',
-    video: 'on',
-    actionTimeout: DEMO ? 20_000 : 15_000,
-    navigationTimeout: 45_000,
+    // Full capture locally / demos; CI keeps artifacts on failure to avoid cold-start timeouts.
+    trace: DEMO || !process.env.CI ? 'on' : 'retain-on-failure',
+    screenshot: DEMO || !process.env.CI ? 'on' : 'only-on-failure',
+    video: DEMO || !process.env.CI ? 'on' : 'retain-on-failure',
+    actionTimeout: DEMO ? 20_000 : process.env.CI ? 25_000 : 15_000,
+    navigationTimeout: process.env.CI ? 60_000 : 45_000,
     locale: 'en-IN',
     timezoneId: 'Asia/Kolkata',
     ...(DEMO

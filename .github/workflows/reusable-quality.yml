@@ -257,6 +257,7 @@ jobs:
       - run: npx playwright install chromium --with-deps
       - name: Run Playwright (citizen · provider · admin · platform)
         env:
+          CI: true
           E2E_API_URL: ${{ inputs.e2e_api_url }}
           E2E_CITIZEN_URL: ${{ inputs.e2e_citizen_url }}
           E2E_PROVIDER_URL: ${{ inputs.e2e_provider_url }}
@@ -264,7 +265,9 @@ jobs:
         run: |
           npx playwright test \
             --project=citizen --project=provider --project=admin --project=platform \
-            --reporter=html,line
+            --reporter=html,line \
+            --workers=1
+
       - name: Accessibility gate
         env:
           NEXT_PUBLIC_API_URL: ${{ inputs.e2e_api_url }}
