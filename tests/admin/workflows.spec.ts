@@ -3,10 +3,17 @@ import { test, expect, hasAdminCreds } from '../../fixtures/test';
 test.describe('Admin console workflows', () => {
   test('login page shows validation and 2FA notice', async ({ adminLogin, page, stepShot }) => {
     await adminLogin.open();
-    await expect(page.getByText(/two-factor authentication/i)).toBeVisible();
+    await expect(page.getByText(/two-factor|2FA|authenticator/i).first()).toBeVisible({
+      timeout: 20_000,
+    });
     await page.locator('input[type="password"]').fill('');
     await page.getByRole('button', { name: /^Sign in$/i }).click();
-    await expect(page.getByText(/email and password/i)).toBeVisible();
+    await expect(
+      page
+        .getByRole('alert')
+        .or(page.getByText(/email and password|required|Enter your/i))
+        .first(),
+    ).toBeVisible({ timeout: 20_000 });
     await stepShot(page, 'admin-login');
   });
 

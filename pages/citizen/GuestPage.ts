@@ -8,7 +8,12 @@ export class CitizenGuestPage extends BasePage {
   }
 
   async requestAmbulance(): Promise<void> {
-    await this.page.getByRole('button', { name: /Request ambulance/i }).click();
+    const cta = this.page
+      .getByRole('button', { name: /Request ambulance|Need an ambulance|Emergency/i })
+      .or(this.page.getByRole('link', { name: /Request ambulance|Need an ambulance/i }))
+      .first();
+    await expect(cta).toBeVisible({ timeout: 25_000 });
+    await cta.click({ timeout: 20_000 });
   }
 
   async continueAsGuest(): Promise<void> {

@@ -14,7 +14,8 @@ export default defineConfig({
   fullyParallel: !DEMO,
   forbidOnly: !!process.env.CI,
   retries: DEMO ? 0 : process.env.CI ? 2 : 1,
-  workers: DEMO ? 1 : process.env.CI ? 2 : undefined,
+  // Single worker on CI avoids Cloud Run cold-start races across parallel browsers.
+  workers: DEMO ? 1 : process.env.CI ? 1 : undefined,
   timeout: DEMO ? 180_000 : 90_000,
   expect: { timeout: DEMO ? 20_000 : 12_000 },
   reporter: [
