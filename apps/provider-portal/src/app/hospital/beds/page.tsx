@@ -11,6 +11,8 @@ import { BED_CATEGORY_LABEL } from '@/lib/utils';
 import type { BedCategory } from '@/lib/types';
 import { providerApi, getSession, type BedInventoryRow, ApiError } from '@/lib/api';
 
+const ALL_BED_CATEGORIES = Object.keys(BED_CATEGORY_LABEL) as BedCategory[];
+
 type LocalRow = {
   category: BedCategory;
   total: number;
@@ -124,7 +126,7 @@ export default function BedsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const update = (idx: number, field: 'available' | 'occupied', delta: number) => {
+  const update = (idx: number, field: 'available' | 'occupied' | 'total', delta: number) => {
     setBeds((prev) => {
       const next = [...prev];
       const row = { ...next[idx] };
@@ -137,6 +139,20 @@ export default function BedsPage() {
     setError(null);
     setNeedsOverride(false);
   };
+
+  // A hospital with no seeded bed_inventory rows previously had no way to ever get
+  // one — the table only rendered rows that already existed server-side, and the
+  // PUT endpoint (which upserts) was unreachable from the UI for a brand-new
+  // category. Adding a row here is purely local state; it's created server-side on
+  // the next "Submit update" (the same upsert path an edit already uses).
+  const addCategory = (category: BedCategory) => {
+    setBeds((prev) => [
+      ...prev,
+      { category, total: 0, available: 0, occupied: 0, stalenessStatus: 'FRESH', lastUpdatedAt: new Date().toISOString() },
+    ]);
+  };
+
+  const missingCategories = ALL_BED_CATEGORIES.filter((c) => !beds.some((b) => b.category === c));
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -254,20 +270,53 @@ export default function BedsPage() {
                   <p className="text-[10px] font-bold" style={{ color: '#C62E2E' }}>STALE</p>
                 )}
               </div>
-              <p className="text-[14px] font-bold">{row.total}</p>
+              <Stepper
+                value={row.total}
+                onDecrement={() => update(idx, 'total', -1)}
+                onIncrement={() => update(idx, 'total', +1)}
+              />
               <Stepper
                 value={row.available}
                 onDecrement={() => update(idx, 'available', -1)}
                 onIncrement={() => update(idx, 'available', +1)}
               />
-              <p className="text-[14px]" style={{ color: '#7C8388' }}>{row.occupied}</p>
+              <Stepper
+                value={row.occupied}
+                onDecrement={() => update(idx, 'occupied', -1)}
+                onIncrement={() => update(idx, 'occupied', +1)}
+              />
             </div>
           ))}
+
+          {beds.length === 0 && (
+            <p className="py-6 text-[13px] text-center" style={{ color: '#7C8388' }}>
+              No bed categories set up yet. Add one below to get started.
+            </p>
+          )}
           </div>
           </div>
 
+          {missingCategories.length > 0 && (
+            <div className="mt-4 pt-4" style={{ borderTop: '1px solid #E7EBEC' }}>
+              <p className="text-[12px] font-semibold mb-2" style={{ color: '#4A5054' }}>Add a bed category</p>
+              <div className="flex flex-wrap gap-2">
+                {missingCategories.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => addCategory(c)}
+                    className="h-9 px-3 rounded-[8px] text-[13px] font-semibold cursor-pointer"
+                    style={{ border: '1px solid #0B5C66', color: '#0B5C66', background: '#F3FBFC' }}
+                  >
+                    + {BED_CATEGORY_LABEL[c]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end mt-[18px]">
-            <Button onClick={handleSubmit} disabled={submitting}>
+            <Button onClick={handleSubmit} disabled={submitting || beds.length === 0}>
               {submitting ? 'Saving…' : 'Submit update'}
             </Button>
           </div>
