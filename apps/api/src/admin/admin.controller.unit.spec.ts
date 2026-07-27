@@ -19,6 +19,11 @@ describe('AdminController (unit)', () => {
         filename: 'doc.pdf',
         body: Buffer.from('pdf'),
       }),
+      resyncPortalClaims: jest.fn().mockResolvedValue({
+        email: 'ranjith@sahyak.test',
+        orgId: 'hos-test',
+        providerType: 'HOSPITAL',
+      }),
     };
     const consoleUsers = {
       requireConsoleRole: jest.fn().mockResolvedValue({}),
@@ -36,6 +41,9 @@ describe('AdminController (unit)', () => {
       { reviewerId: 'r', notes: 'n' } as never,
       user as never,
     );
+    const resync = await c.resyncPortalClaims('a1', user as never);
+    expect(onboarding.resyncPortalClaims).toHaveBeenCalledWith('a1', 'admin');
+    expect(resync.data.providerType).toBe('HOSPITAL');
     await c.listConsoleUsers(user as never);
     await c.createConsoleUser({ email: 'a@b.co', role: 'CONSOLE_ADMINISTRATOR' } as never, user as never);
     expect(onboarding.isPortalLive).toHaveBeenCalled();

@@ -146,6 +146,20 @@ export class AdminController {
     return { data: application, meta: {}, errors: [] };
   }
 
+  // Re-stamps a provisioned provider's Firebase custom claims (role/orgId/providerType)
+  // without resetting their password. Fixes accounts provisioned before `providerType`
+  // was required by the portal login flow, or any other claims drift.
+  @Post('provider-applications/:id/resync-portal-claims')
+  async resyncPortalClaims(@Param('id') id: string, @CurrentUser() user: AuthenticatedPrincipal) {
+    await this.consoleUsers.requireConsoleRole(user.uid, [
+      ConsoleRole.PROVIDER_ONBOARDING_SPECIALIST,
+      ConsoleRole.CONSOLE_ADMINISTRATOR,
+    ]);
+
+    const result = await this.onboarding.resyncPortalClaims(id, user.uid);
+    return { data: result, meta: {}, errors: [] };
+  }
+
   @Get('console-users')
   async listConsoleUsers(@CurrentUser() user: AuthenticatedPrincipal) {
     await this.consoleUsers.requireConsoleRole(user.uid, [

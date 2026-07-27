@@ -117,6 +117,7 @@ export class ProviderOnboardingService {
     if (wantsCreds) {
       await this.provisionPortalLogin({
         orgId: input.orgId!.trim(),
+        providerType: input.providerType,
         email: input.portalEmail!.trim().toLowerCase(),
         password: input.portalPassword!,
         displayName: input.legalName,
@@ -362,24 +363,46 @@ export class ProviderOnboardingService {
     return { filename: doc.name, body: Buffer.from(text, 'utf8') };
   }
 
+  private getFirebaseAuth(): admin.auth.Auth {
+    try {
+      return admin.auth(getFirebaseAdminApp(this.config));
+    } catch {
+      throw new ServiceUnavailableException(
+        'Firebase is not configured — cannot manage provider portal credentials',
+      );
+    }
+  }
+
+  // Stamps the same custom claims the provider-portal login flow (POST
+  // /v1/auth/session → PortalGuard) requires: `role`, `orgId`, `providerType`. Split
+  // out from provisionPortalLogin (which also creates/resets the Firebase user +
+  // password) so it can be re-run idempotently via resyncPortalClaims without
+  // touching the user's password — e.g. to backfill accounts provisioned before
+  // `providerType` existed as a claim (PROVIDER_UAT_REPORT.md Finding #1 fix).
+  private async stampProviderClaims(
+    auth: admin.auth.Auth,
+    uid: string,
+    orgId: string,
+    providerType: ProviderType,
+  ): Promise<void> {
+    await auth.setCustomUserClaims(uid, {
+      role: Role.PROVIDER_STAFF,
+      orgId,
+      providerType,
+      hospitalPortalRole: 'HOSPITAL_ADMINISTRATOR',
+    });
+  }
+
   private async provisionPortalLogin(input: {
     orgId: string;
+    providerType: ProviderType;
     email: string;
     password: string;
     displayName: string;
     actor: string;
     applicationId: string;
   }): Promise<void> {
-    let app: admin.app.App;
-    try {
-      app = getFirebaseAdminApp(this.config);
-    } catch {
-      throw new ServiceUnavailableException(
-        'Firebase is not configured — cannot create provider portal credentials',
-      );
-    }
-
-    const auth = admin.auth(app);
+    const auth = this.getFirebaseAuth();
     let uid: string;
     try {
       const existing = await auth.getUserByEmail(input.email);
@@ -402,18 +425,53 @@ export class ProviderOnboardingService {
       uid = created.uid;
     }
 
-    await auth.setCustomUserClaims(uid, {
-      role: Role.PROVIDER_STAFF,
-      orgId: input.orgId,
-      hospitalPortalRole: 'HOSPITAL_ADMINISTRATOR',
-    });
+    await this.stampProviderClaims(auth, uid, input.orgId, input.providerType);
 
     await this.audit.record({
       actor: input.actor,
       action: 'PROVIDER_PORTAL_CREDENTIALS_PROVISIONED',
       entityType: 'ProviderApplication',
       entityId: input.applicationId,
-      metadata: { email: input.email, orgId: input.orgId, firebaseUid: uid },
+      metadata: { email: input.email, orgId: input.orgId, providerType: input.providerType, firebaseUid: uid },
     });
+  }
+
+  // Re-stamps custom claims for an application's existing portal login without
+  // resetting its password — the fix path for accounts provisioned before the
+  // `providerType` claim was required (or any other claims drift). Idempotent and
+  // safe to call regardless of onboarding stage.
+  async resyncPortalClaims(applicationId: string, actor: string): Promise<{ email: string; orgId: string; providerType: ProviderType }> {
+    const application = await this.prisma.providerApplication.findUnique({ where: { id: applicationId } });
+    if (!application) {
+      throw new NotFoundException(`ProviderApplication ${applicationId} not found`);
+    }
+    if (!application.orgId || !application.portalEmail) {
+      throw new BadRequestException(
+        'This application has no provisioned portal credentials to resync (no orgId/portalEmail on record)',
+      );
+    }
+
+    const auth = this.getFirebaseAuth();
+    const user = await auth.getUserByEmail(application.portalEmail);
+    await this.stampProviderClaims(
+      auth,
+      user.uid,
+      application.orgId,
+      application.providerType as ProviderType,
+    );
+
+    await this.audit.record({
+      actor,
+      action: 'PROVIDER_PORTAL_CLAIMS_RESYNCED',
+      entityType: 'ProviderApplication',
+      entityId: applicationId,
+      metadata: { email: application.portalEmail, orgId: application.orgId, providerType: application.providerType, firebaseUid: user.uid },
+    });
+
+    return {
+      email: application.portalEmail,
+      orgId: application.orgId,
+      providerType: application.providerType as ProviderType,
+    };
   }
 }
