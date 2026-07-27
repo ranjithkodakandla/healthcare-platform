@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { adminApi, type SupportTicket, ApiError } from '@/lib/api';
+import { sanitizeHtmlInput } from '@/lib/utils';
 
 function prioVariant(p: string): 'danger' | 'warning' | 'info' {
   if (p === 'HIGH') return 'danger';
@@ -70,8 +71,10 @@ function TicketDetailContent() {
     if (!ticket) return;
     setSaving(true);
     try {
-      const res = await adminApi.support.updateTicket(ticket.id, { internalNotes: note });
+      const cleanNote = sanitizeHtmlInput(note);
+      const res = await adminApi.support.updateTicket(ticket.id, { internalNotes: cleanNote });
       setTicket(res.data);
+      setNote(cleanNote);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -165,7 +168,7 @@ function TicketDetailContent() {
               <div className="text-[13px] font-semibold text-[#1A1D1F] mb-2">Internal notes</div>
               {ticket.internalNotes ? (
                 <div className="mb-3 rounded-md px-3 py-2 text-[13px] text-[#4A5054] whitespace-pre-wrap" style={{ background: '#F2F4F5' }}>
-                  {ticket.internalNotes}
+                  {sanitizeHtmlInput(ticket.internalNotes)}
                 </div>
               ) : (
                 <div className="mb-3 text-[12px] text-[#7C8388]">No notes yet.</div>

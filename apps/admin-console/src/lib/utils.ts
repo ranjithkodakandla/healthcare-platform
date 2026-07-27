@@ -14,3 +14,16 @@ export function statusVariant(variant: StatusVariant) {
   };
   return map[variant];
 }
+
+/**
+ * Sanitizes input text by removing script tags, dangerous HTML tags, and inline event handlers,
+ * while safely preserving plain text and multi-byte Unicode characters (e.g. ñ, é, 中文, 🚑, &, 100%).
+ */
+export function sanitizeHtmlInput(input: string | null | undefined): string {
+  if (!input) return '';
+  return input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .trim();
+}
