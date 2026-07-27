@@ -8,6 +8,7 @@ import { ProviderConfigService } from './provider-config.service';
 import { ProviderAuditService } from './provider-audit.service';
 import { ProviderDoctorService } from './provider-doctor.service';
 import { ProviderDiagnosticsService } from './provider-diagnostics.service';
+import { ProviderCaseService } from './provider-case.service';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { RolesGuard } from '../shared-services/auth/roles.guard';
 import { BedCategory, BedInventoryStatus } from '@sahayak/shared-constants';
@@ -42,6 +43,7 @@ const mockProviderConfigService = { getHoldExpiryConfig: jest.fn() };
 const mockProviderAuditService = { listForHospital: jest.fn() };
 const mockProviderDoctorService = { list: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn() };
 const mockProviderDiagnosticsService = { list: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn() };
+const mockProviderCaseService = { list: jest.fn(), getTimeline: jest.fn(), createWalkIn: jest.fn() };
 
 describe('ProviderController', () => {
   let controller: ProviderController;
@@ -59,6 +61,7 @@ describe('ProviderController', () => {
         { provide: ProviderAuditService, useValue: mockProviderAuditService },
         { provide: ProviderDoctorService, useValue: mockProviderDoctorService },
         { provide: ProviderDiagnosticsService, useValue: mockProviderDiagnosticsService },
+        { provide: ProviderCaseService, useValue: mockProviderCaseService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -288,6 +291,31 @@ describe('ProviderController', () => {
       mockProviderDiagnosticsService.remove.mockResolvedValue(undefined);
       const removeResult = await controller.removeDiagnosticOffering(HOSPITAL_ID, 'o2', { uid: ACTOR_ID });
       expect(removeResult.data).toEqual({ offeringId: 'o2', removed: true });
+    });
+  });
+
+  describe('P-06 Case Management (list, timeline, walk-in)', () => {
+    it('lists cases, fetches a timeline, and adds a walk-in case', async () => {
+      mockProviderCaseService.list.mockResolvedValue([{ caseId: 'c1' }]);
+      const listResult = await controller.listCases(HOSPITAL_ID);
+      expect(listResult.data).toHaveLength(1);
+
+      mockProviderCaseService.getTimeline.mockResolvedValue([{ id: 'evt-1' }]);
+      const timelineResult = await controller.getCaseTimeline(HOSPITAL_ID, 'c1');
+      expect(timelineResult.data).toHaveLength(1);
+
+      mockProviderCaseService.createWalkIn.mockResolvedValue({ case: { id: 'c2' }, hold: { id: 'h2' } });
+      const walkInResult = await controller.createWalkInCase(
+        HOSPITAL_ID,
+        { severity: 'CRITICAL' as any, category: 'ICU' as any },
+        { uid: ACTOR_ID },
+      );
+      expect(walkInResult.data.case.id).toBe('c2');
+      expect(mockProviderCaseService.createWalkIn).toHaveBeenCalledWith(
+        HOSPITAL_ID,
+        { severity: 'CRITICAL', category: 'ICU' },
+        ACTOR_ID,
+      );
     });
   });
 });

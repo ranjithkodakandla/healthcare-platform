@@ -192,6 +192,24 @@ export interface DiagnosticOfferingRow {
   nextSlotAt: string | null;
 }
 
+export interface CaseRow {
+  caseId: string;
+  caseNumber: string;
+  severity: string | null;
+  status: string;
+  holdId: string;
+  category: string;
+  holdStatus: string;
+  heldAt: string;
+}
+
+export interface CaseTimelineEvent {
+  id: string;
+  type: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
 export const providerApi = {
   dashboard: {
     get(hospitalId: string): Promise<{ data: DashboardData }> {
@@ -300,6 +318,21 @@ export const providerApi = {
     },
     remove(hospitalId: string, id: string): Promise<{ data: unknown }> {
       return request('DELETE', `/v1/providers/${hospitalId}/diagnostics/offerings/${id}`);
+    },
+  },
+
+  cases: {
+    list(hospitalId: string): Promise<{ data: CaseRow[] }> {
+      return request('GET', `/v1/providers/${hospitalId}/cases`);
+    },
+    timeline(hospitalId: string, caseId: string): Promise<{ data: CaseTimelineEvent[] }> {
+      return request('GET', `/v1/providers/${hospitalId}/cases/${caseId}/timeline`);
+    },
+    createWalkIn(
+      hospitalId: string,
+      body: { severity: string; category: string; patientName?: string },
+    ): Promise<{ data: { case: { id: string; caseNumber: string }; hold: { id: string } } }> {
+      return request('POST', `/v1/providers/${hospitalId}/cases/walk-in`, body);
     },
   },
 

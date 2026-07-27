@@ -31,11 +31,13 @@ import {
 } from './dto/update-bed-inventory.dto';
 import { InviteProviderUserDto } from './dto/invite-provider-user.dto';
 import { UpsertDoctorDto, UpsertDiagnosticOfferingDto } from './dto/hospital-department.dto';
+import { CreateWalkInCaseDto } from './dto/create-walkin-case.dto';
 import { ProviderUserService } from './provider-user.service';
 import { ProviderConfigService } from './provider-config.service';
 import { ProviderAuditService } from './provider-audit.service';
 import { ProviderDoctorService } from './provider-doctor.service';
 import { ProviderDiagnosticsService } from './provider-diagnostics.service';
+import { ProviderCaseService } from './provider-case.service';
 
 @ApiTags('Provider Portal')
 @ApiBearerAuth()
@@ -50,6 +52,7 @@ export class ProviderController {
     private readonly providerAuditService: ProviderAuditService,
     private readonly providerDoctorService: ProviderDoctorService,
     private readonly providerDiagnosticsService: ProviderDiagnosticsService,
+    private readonly providerCaseService: ProviderCaseService,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -368,5 +371,38 @@ export class ProviderController {
   ) {
     await this.providerDiagnosticsService.remove(hospitalId, offeringId, user.uid);
     return { data: { offeringId, removed: true }, meta: { hospitalId } };
+  }
+
+  // ── P-06: Case Management (F2, GT-07 consent-scoped) ─────────────────────────
+
+  @Get(':hospitalId/cases')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'P-06: cases with an active bed hold at this hospital' })
+  async listCases(@Param('hospitalId') hospitalId: string) {
+    const data = await this.providerCaseService.list(hospitalId);
+    return { data, meta: { hospitalId, count: data.length } };
+  }
+
+  @Get(':hospitalId/cases/:caseId/timeline')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'P-06: consent-scoped timeline for a case held at this hospital' })
+  async getCaseTimeline(@Param('hospitalId') hospitalId: string, @Param('caseId') caseId: string) {
+    const data = await this.providerCaseService.getTimeline(hospitalId, caseId);
+    return { data, meta: { hospitalId, caseId } };
+  }
+
+  @Post(':hospitalId/cases/walk-in')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'P-06: add a walk-in case (patient not routed via the citizen app)' })
+  async createWalkInCase(
+    @Param('hospitalId') hospitalId: string,
+    @Body() dto: CreateWalkInCaseDto,
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.providerCaseService.createWalkIn(hospitalId, dto, user.uid);
+    return { data, meta: { hospitalId } };
   }
 }

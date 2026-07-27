@@ -81,6 +81,9 @@ describe('provider api', () => {
     await providerApi.diagnostics.create('hosp-1', { testName: 'MRI', priceInr: 4000 });
     await providerApi.diagnostics.update('hosp-1', 'o1', { priceInr: 3500 });
     await providerApi.diagnostics.remove('hosp-1', 'o1');
+    await providerApi.cases.list('hosp-1');
+    await providerApi.cases.timeline('hosp-1', 'c1');
+    await providerApi.cases.createWalkIn('hosp-1', { severity: 'CRITICAL', category: 'ICU', patientName: 'Test Patient' });
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,

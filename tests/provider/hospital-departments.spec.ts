@@ -64,3 +64,45 @@ test.describe('Hospital in-house Doctors CRUD', () => {
     await expect(page.getByText(/No doctors added yet/i)).toBeVisible();
   });
 });
+
+test.describe('Hospital Case Management (real data + walk-in case)', () => {
+  test('shows real cases from the API and adds a walk-in case', async ({ page }) => {
+    let cases: Array<{ caseId: string; caseNumber: string; severity: string; status: string; holdId: string; category: string; holdStatus: string; heldAt: string }> = [];
+
+    await page.route('**/v1/providers/e2e-hospital/cases', async (route) => {
+      await route.fulfill({ json: { data: cases, meta: { count: cases.length } } });
+    });
+    await page.route('**/v1/providers/e2e-hospital/cases/walk-in', async (route) => {
+      const body = route.request().postDataJSON();
+      const created = {
+        caseId: 'c1',
+        caseNumber: 'HCC-2026-0000001',
+        severity: body.severity,
+        status: 'INITIATED',
+        holdId: 'h1',
+        category: body.category,
+        holdStatus: 'PENDING',
+        heldAt: new Date().toISOString(),
+      };
+      cases = [...cases, created];
+      await route.fulfill({ json: { data: { case: { id: 'c1', caseNumber: created.caseNumber }, hold: { id: 'h1' } }, meta: {} } });
+    });
+    await page.route('**/v1/providers/e2e-hospital/cases/c1/timeline', async (route) => {
+      await route.fulfill({ json: { data: [{ id: 'evt-1', type: 'CASE_CREATED', payload: {}, createdAt: new Date().toISOString() }] } });
+    });
+
+    await page.goto('/login');
+    await page.evaluate(injectHospitalSession);
+    await page.goto('/hospital/cases');
+
+    await expect(page.getByText(/No cases held at this hospital yet/i)).toBeVisible();
+
+    await page.getByRole('button', { name: '+ Add walk-in case' }).click();
+    await page.getByLabel('Patient name (optional)').fill('Walk-in Patient');
+    await page.getByRole('button', { name: /^Add walk-in case$/ }).click();
+
+    await expect(page.getByRole('button', { name: /HCC-2026-0000001/ })).toBeVisible();
+    await expect(page.getByText(/No cases held at this hospital yet/i)).not.toBeVisible();
+    await expect(page.getByText('CASE_CREATED')).toBeVisible();
+  });
+});
