@@ -55,7 +55,7 @@ export function clearSession(): void {
 // ── Request helpers ────────────────────────────────────────────────────────────
 
 async function request<T>(
-  method: 'GET' | 'PUT' | 'POST' | 'PATCH',
+  method: 'GET' | 'PUT' | 'POST' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
   token?: string,
@@ -168,6 +168,30 @@ export interface BloodAlertRow {
   caseId: string | null;
 }
 
+export interface BloodStockRow {
+  id: string;
+  bloodGroup: string;
+  component: string;
+  unitsAvailable: number;
+}
+
+export interface DoctorRow {
+  id: string;
+  name: string;
+  specialty: string;
+  isTeleconsult: boolean;
+  city: string | null;
+  nextSlotAt: string | null;
+}
+
+export interface DiagnosticOfferingRow {
+  id: string;
+  testName: string;
+  priceInr: number;
+  city: string | null;
+  nextSlotAt: string | null;
+}
+
 export const providerApi = {
   dashboard: {
     get(hospitalId: string): Promise<{ data: DashboardData }> {
@@ -191,6 +215,15 @@ export const providerApi = {
     updateStatus(providerId: string, driverId: string, fleetStatus: string): Promise<{ data: unknown }> {
       return request('PATCH', `/v1/providers/${providerId}/fleet/${driverId}`, { fleetStatus });
     },
+    create(
+      providerId: string,
+      body: { vehicleReg: string; vehicleType?: string; driverName?: string },
+    ): Promise<{ data: FleetVehicle }> {
+      return request('POST', `/v1/providers/${providerId}/fleet`, body);
+    },
+    remove(providerId: string, driverId: string): Promise<{ data: unknown }> {
+      return request('DELETE', `/v1/providers/${providerId}/fleet/${driverId}`);
+    },
   },
 
   pharmacy: {
@@ -206,6 +239,9 @@ export const providerApi = {
     ): Promise<{ data: PharmacyStockRow[] }> {
       return request('PUT', `/v1/providers/${providerId}/pharmacy/stock`, { updates });
     },
+    removeItem(providerId: string, itemId: string): Promise<{ data: unknown }> {
+      return request('DELETE', `/v1/providers/${providerId}/pharmacy/stock/${itemId}`);
+    },
   },
 
   blood: {
@@ -216,6 +252,54 @@ export const providerApi = {
     },
     acknowledge(providerId: string, alertId: string): Promise<{ data: unknown }> {
       return request('POST', `/v1/providers/${providerId}/blood/pre-alerts/${alertId}/acknowledge`);
+    },
+    stock(providerId: string): Promise<{ data: BloodStockRow[] }> {
+      return request('GET', `/v1/providers/${providerId}/blood/stock`);
+    },
+    createStock(
+      providerId: string,
+      body: { bloodGroup: string; component?: string; unitsAvailable: number; name?: string },
+    ): Promise<{ data: BloodStockRow }> {
+      return request('POST', `/v1/providers/${providerId}/blood/stock`, body);
+    },
+    updateStock(providerId: string, id: string, unitsAvailable: number): Promise<{ data: BloodStockRow }> {
+      return request('PATCH', `/v1/providers/${providerId}/blood/stock/${id}`, { unitsAvailable });
+    },
+    removeStock(providerId: string, id: string): Promise<{ data: unknown }> {
+      return request('DELETE', `/v1/providers/${providerId}/blood/stock/${id}`);
+    },
+  },
+
+  doctors: {
+    list(hospitalId: string): Promise<{ data: DoctorRow[] }> {
+      return request('GET', `/v1/providers/${hospitalId}/doctors`);
+    },
+    create(
+      hospitalId: string,
+      body: { name: string; specialty: string; isTeleconsult?: boolean; city?: string },
+    ): Promise<{ data: DoctorRow }> {
+      return request('POST', `/v1/providers/${hospitalId}/doctors`, body);
+    },
+    update(hospitalId: string, id: string, body: Partial<{ name: string; specialty: string; isTeleconsult: boolean; city: string }>): Promise<{ data: DoctorRow }> {
+      return request('PATCH', `/v1/providers/${hospitalId}/doctors/${id}`, body);
+    },
+    remove(hospitalId: string, id: string): Promise<{ data: unknown }> {
+      return request('DELETE', `/v1/providers/${hospitalId}/doctors/${id}`);
+    },
+  },
+
+  diagnostics: {
+    list(hospitalId: string): Promise<{ data: DiagnosticOfferingRow[] }> {
+      return request('GET', `/v1/providers/${hospitalId}/diagnostics/offerings`);
+    },
+    create(hospitalId: string, body: { testName: string; priceInr: number; city?: string }): Promise<{ data: DiagnosticOfferingRow }> {
+      return request('POST', `/v1/providers/${hospitalId}/diagnostics/offerings`, body);
+    },
+    update(hospitalId: string, id: string, body: Partial<{ testName: string; priceInr: number; city: string }>): Promise<{ data: DiagnosticOfferingRow }> {
+      return request('PATCH', `/v1/providers/${hospitalId}/diagnostics/offerings/${id}`, body);
+    },
+    remove(hospitalId: string, id: string): Promise<{ data: unknown }> {
+      return request('DELETE', `/v1/providers/${hospitalId}/diagnostics/offerings/${id}`);
     },
   },
 

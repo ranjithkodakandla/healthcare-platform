@@ -583,6 +583,11 @@ model DoctorProfile {
   name            String
   specialty       String
   hospitalName    String?  @map("hospital_name")
+  // Owning hospital's orgId when this doctor is an in-house department member
+  // managed via the Hospital Portal (P-10-style CRUD) — null for independent/
+  // directory-only doctor profiles not owned by any hospital (app-layer ref
+  // per M23, no hard FK).
+  hospitalId      String?  @map("hospital_id")
   nextSlotAt      DateTime? @map("next_slot_at")
   city            String?
   lat             Float?
@@ -592,6 +597,7 @@ model DoctorProfile {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([specialty])
+  @@index([hospitalId])
   @@map("doctor_profiles")
   @@schema("doctors")
 }
@@ -605,6 +611,10 @@ model DiagnosticOffering {
   centerName    String   @map("center_name")
   testName      String   @map("test_name")
   priceInr      Int      @map("price_inr")
+  // Owning hospital's orgId for an in-house diagnostic offering managed via the
+  // Hospital Portal — null for independent/directory-only offerings (app-layer
+  // ref per M23, no hard FK).
+  hospitalId    String?  @map("hospital_id")
   nextSlotAt    DateTime? @map("next_slot_at")
   city          String?
   lat           Float?
@@ -613,6 +623,7 @@ model DiagnosticOffering {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@index([testName])
+  @@index([hospitalId])
   @@map("diagnostic_offerings")
   @@schema("diagnostics")
 }

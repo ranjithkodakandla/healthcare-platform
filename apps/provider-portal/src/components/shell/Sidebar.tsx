@@ -45,6 +45,16 @@ const HOSPITAL_NAV: SidebarSection[] = [
       { href: '/hospital/audit', label: 'Audit Logs', Icon: ScrollText, prdId: 'P-12' },
     ],
   },
+  {
+    title: 'In-House Departments',
+    items: [
+      { href: '/hospital/doctors', label: 'Doctors', Icon: Stethoscope, prdId: 'IH-01' },
+      { href: '/hospital/ambulances', label: 'Ambulances', Icon: Ambulance, prdId: 'IH-02' },
+      { href: '/hospital/pharmacy', label: 'Pharmacy', Icon: Pill, prdId: 'IH-03' },
+      { href: '/hospital/blood-bank', label: 'Blood Bank', Icon: Droplet, prdId: 'IH-04' },
+      { href: '/hospital/diagnostics', label: 'Diagnostics', Icon: FlaskConical, prdId: 'IH-05' },
+    ],
+  },
 ];
 
 const OTHER_PORTALS: SidebarSection[] = [

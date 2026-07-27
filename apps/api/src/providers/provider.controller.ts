@@ -3,6 +3,8 @@ import {
   Get,
   Put,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -28,9 +30,12 @@ import {
   ClinicalAckDto,
 } from './dto/update-bed-inventory.dto';
 import { InviteProviderUserDto } from './dto/invite-provider-user.dto';
+import { UpsertDoctorDto, UpsertDiagnosticOfferingDto } from './dto/hospital-department.dto';
 import { ProviderUserService } from './provider-user.service';
 import { ProviderConfigService } from './provider-config.service';
 import { ProviderAuditService } from './provider-audit.service';
+import { ProviderDoctorService } from './provider-doctor.service';
+import { ProviderDiagnosticsService } from './provider-diagnostics.service';
 
 @ApiTags('Provider Portal')
 @ApiBearerAuth()
@@ -43,6 +48,8 @@ export class ProviderController {
     private readonly providerUserService: ProviderUserService,
     private readonly providerConfigService: ProviderConfigService,
     private readonly providerAuditService: ProviderAuditService,
+    private readonly providerDoctorService: ProviderDoctorService,
+    private readonly providerDiagnosticsService: ProviderDiagnosticsService,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -257,5 +264,109 @@ export class ProviderController {
   async getAuditLog(@Param('hospitalId') hospitalId: string) {
     const rows = await this.providerAuditService.listForHospital(hospitalId);
     return { data: rows, meta: { hospitalId, count: rows.length } };
+  }
+
+  // ── Hospital in-house Doctors department (full CRUD) ─────────────────────────
+
+  @Get(':hospitalId/doctors')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'In-house doctors owned by this hospital' })
+  async listDoctors(@Param('hospitalId') hospitalId: string) {
+    const data = await this.providerDoctorService.list(hospitalId);
+    return { data, meta: { hospitalId, count: data.length } };
+  }
+
+  @Post(':hospitalId/doctors')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'Add an in-house doctor' })
+  async addDoctor(
+    @Param('hospitalId') hospitalId: string,
+    @Body() dto: UpsertDoctorDto,
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.providerDoctorService.create(hospitalId, dto, user.uid);
+    return { data, meta: { hospitalId } };
+  }
+
+  @Patch(':hospitalId/doctors/:doctorId')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'Update an in-house doctor' })
+  async updateDoctor(
+    @Param('hospitalId') hospitalId: string,
+    @Param('doctorId') doctorId: string,
+    @Body() dto: Partial<UpsertDoctorDto>,
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.providerDoctorService.update(hospitalId, doctorId, dto, user.uid);
+    return { data, meta: { hospitalId } };
+  }
+
+  @Delete(':hospitalId/doctors/:doctorId')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove an in-house doctor' })
+  async removeDoctor(
+    @Param('hospitalId') hospitalId: string,
+    @Param('doctorId') doctorId: string,
+    @CurrentUser() user: { uid: string },
+  ) {
+    await this.providerDoctorService.remove(hospitalId, doctorId, user.uid);
+    return { data: { doctorId, removed: true }, meta: { hospitalId } };
+  }
+
+  // ── Hospital in-house Diagnostics department (full CRUD) ─────────────────────
+
+  @Get(':hospitalId/diagnostics/offerings')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'In-house diagnostic offerings owned by this hospital' })
+  async listDiagnosticOfferings(@Param('hospitalId') hospitalId: string) {
+    const data = await this.providerDiagnosticsService.list(hospitalId);
+    return { data, meta: { hospitalId, count: data.length } };
+  }
+
+  @Post(':hospitalId/diagnostics/offerings')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'Add an in-house diagnostic offering' })
+  async addDiagnosticOffering(
+    @Param('hospitalId') hospitalId: string,
+    @Body() dto: UpsertDiagnosticOfferingDto,
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.providerDiagnosticsService.create(hospitalId, dto, user.uid);
+    return { data, meta: { hospitalId } };
+  }
+
+  @Patch(':hospitalId/diagnostics/offerings/:offeringId')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @ApiOperation({ summary: 'Update an in-house diagnostic offering' })
+  async updateDiagnosticOffering(
+    @Param('hospitalId') hospitalId: string,
+    @Param('offeringId') offeringId: string,
+    @Body() dto: Partial<UpsertDiagnosticOfferingDto>,
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.providerDiagnosticsService.update(hospitalId, offeringId, dto, user.uid);
+    return { data, meta: { hospitalId } };
+  }
+
+  @Delete(':hospitalId/diagnostics/offerings/:offeringId')
+  @UseGuards(AuthGuard, RolesGuard, OrgScopeGuard)
+  @Roles(Role.PROVIDER_STAFF, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove an in-house diagnostic offering' })
+  async removeDiagnosticOffering(
+    @Param('hospitalId') hospitalId: string,
+    @Param('offeringId') offeringId: string,
+    @CurrentUser() user: { uid: string },
+  ) {
+    await this.providerDiagnosticsService.remove(hospitalId, offeringId, user.uid);
+    return { data: { offeringId, removed: true }, meta: { hospitalId } };
   }
 }

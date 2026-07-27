@@ -65,6 +65,23 @@ describe('provider api', () => {
     await providerApi.config.get('hosp-1');
     await providerApi.audit.list('hosp-1');
 
+    // In-house department CRUD (hospital admin full add/update/view/delete)
+    await providerApi.fleet.create('hosp-1', { vehicleReg: 'KA-02' });
+    await providerApi.fleet.remove('hosp-1', 'd1');
+    await providerApi.pharmacy.removeItem('hosp-1', 's1');
+    await providerApi.blood.stock('hosp-1');
+    await providerApi.blood.createStock('hosp-1', { bloodGroup: 'O+', unitsAvailable: 10 });
+    await providerApi.blood.updateStock('hosp-1', 'bs1', 5);
+    await providerApi.blood.removeStock('hosp-1', 'bs1');
+    await providerApi.doctors.list('hosp-1');
+    await providerApi.doctors.create('hosp-1', { name: 'Dr. X', specialty: 'ENT' });
+    await providerApi.doctors.update('hosp-1', 'd1', { name: 'Dr. Y' });
+    await providerApi.doctors.remove('hosp-1', 'd1');
+    await providerApi.diagnostics.list('hosp-1');
+    await providerApi.diagnostics.create('hosp-1', { testName: 'MRI', priceInr: 4000 });
+    await providerApi.diagnostics.update('hosp-1', 'o1', { priceInr: 3500 });
+    await providerApi.diagnostics.remove('hosp-1', 'o1');
+
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,

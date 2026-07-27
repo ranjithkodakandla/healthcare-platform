@@ -38,6 +38,59 @@ export class ProviderSecondaryService {
     }));
   }
 
+  // Adding/removing vehicles is the "full CRUD" half of fleet management — status
+  // updates (above) already existed. `driverUid` isn't a real citizen account for an
+  // in-house/manually-added vehicle, so we generate a synthetic one; a real driver
+  // app account can be linked later by updating this row (out of scope here).
+  async createDriver(
+    operatorId: string,
+    input: { vehicleReg: string; vehicleType?: string; driverName?: string },
+    actor: string,
+  ) {
+    if (!input.vehicleReg?.trim()) {
+      throw new BadRequestException('vehicleReg is required');
+    }
+    const allowedTypes = ['BASIC_LIFE_SUPPORT', 'ADVANCED_LIFE_SUPPORT', 'PATIENT_TRANSPORT'];
+    const vehicleType = input.vehicleType ?? 'BASIC_LIFE_SUPPORT';
+    if (!allowedTypes.includes(vehicleType)) {
+      throw new BadRequestException(`vehicleType must be one of ${allowedTypes.join(', ')}`);
+    }
+    const created = await this.prisma.ambulanceDriver.create({
+      data: {
+        driverUid: `manual-${operatorId}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+        operatorId,
+        displayName: input.driverName?.trim() || null,
+        vehicleReg: input.vehicleReg.trim(),
+        vehicleType,
+        fleetStatus: 'OFF_DUTY',
+        isOnDuty: false,
+      },
+    });
+    await this.audit.record({
+      actor,
+      action: 'FLEET_VEHICLE_ADDED',
+      entityType: 'AmbulanceDriver',
+      entityId: created.id,
+      metadata: { operatorId, vehicleReg: created.vehicleReg },
+    });
+    return created;
+  }
+
+  async deleteDriver(operatorId: string, driverId: string, actor: string) {
+    const existing = await this.prisma.ambulanceDriver.findFirst({
+      where: { id: driverId, operatorId },
+    });
+    if (!existing) throw new NotFoundException(`Driver ${driverId} not found for operator`);
+    await this.prisma.ambulanceDriver.delete({ where: { id: driverId } });
+    await this.audit.record({
+      actor,
+      action: 'FLEET_VEHICLE_REMOVED',
+      entityType: 'AmbulanceDriver',
+      entityId: driverId,
+      metadata: { operatorId },
+    });
+  }
+
   async updateFleetStatus(operatorId: string, driverId: string, fleetStatus: string, actor: string) {
     const allowed = ['AVAILABLE', 'EN_ROUTE', 'MAINTENANCE', 'OFF_DUTY'];
     if (!allowed.includes(fleetStatus)) {
@@ -131,6 +184,103 @@ export class ProviderSecondaryService {
       metadata: { updatedCount: results.length },
     });
     return results;
+  }
+
+  async deletePharmacyItem(pharmacyId: string, itemId: string, actor: string) {
+    const existing = await this.prisma.pharmacyStock.findFirst({
+      where: { id: itemId, pharmacyId },
+    });
+    if (!existing) throw new NotFoundException(`Pharmacy stock item ${itemId} not found`);
+    await this.prisma.pharmacyStock.delete({ where: { id: itemId } });
+    await this.audit.record({
+      actor,
+      action: 'PHARMACY_STOCK_ITEM_REMOVED',
+      entityType: 'PharmacyStock',
+      entityId: itemId,
+      metadata: { pharmacyId, medicineName: existing.medicineName },
+    });
+  }
+
+  // ── Blood Bank Stock (in-house inventory CRUD) ──────────────────────────────
+  // Distinct from the pre-alert queue above (that's a triage inbox; this is the
+  // actual unit inventory a hospital's own blood bank department manages).
+
+  async getBloodStock(bloodBankId: string) {
+    return this.prisma.bloodBankStock.findMany({
+      where: { bloodBankId },
+      orderBy: [{ bloodGroup: 'asc' }, { component: 'asc' }],
+    });
+  }
+
+  async createBloodStock(
+    bloodBankId: string,
+    input: { bloodGroup: string; component?: string; unitsAvailable: number; name?: string },
+    actor: string,
+  ) {
+    if (!input.bloodGroup?.trim()) {
+      throw new BadRequestException('bloodGroup is required');
+    }
+    if (input.unitsAvailable == null || input.unitsAvailable < 0) {
+      throw new BadRequestException('unitsAvailable must be a non-negative number');
+    }
+    const created = await this.prisma.bloodBankStock.upsert({
+      where: {
+        bloodBankId_bloodGroup_component: {
+          bloodBankId,
+          bloodGroup: input.bloodGroup.trim(),
+          component: input.component ?? 'WHOLE_BLOOD',
+        },
+      },
+      create: {
+        bloodBankId,
+        name: input.name?.trim() || bloodBankId,
+        bloodGroup: input.bloodGroup.trim(),
+        component: input.component ?? 'WHOLE_BLOOD',
+        unitsAvailable: input.unitsAvailable,
+      },
+      update: { unitsAvailable: input.unitsAvailable },
+    });
+    await this.audit.record({
+      actor,
+      action: 'BLOOD_STOCK_ADDED',
+      entityType: 'BloodBankStock',
+      entityId: created.id,
+      metadata: { bloodBankId, bloodGroup: created.bloodGroup, component: created.component },
+    });
+    return created;
+  }
+
+  async updateBloodStock(bloodBankId: string, id: string, unitsAvailable: number, actor: string) {
+    if (unitsAvailable == null || unitsAvailable < 0) {
+      throw new BadRequestException('unitsAvailable must be a non-negative number');
+    }
+    const existing = await this.prisma.bloodBankStock.findFirst({ where: { id, bloodBankId } });
+    if (!existing) throw new NotFoundException(`Blood stock ${id} not found`);
+    const updated = await this.prisma.bloodBankStock.update({
+      where: { id },
+      data: { unitsAvailable },
+    });
+    await this.audit.record({
+      actor,
+      action: 'BLOOD_STOCK_UPDATED',
+      entityType: 'BloodBankStock',
+      entityId: id,
+      metadata: { bloodBankId, unitsAvailable },
+    });
+    return updated;
+  }
+
+  async deleteBloodStock(bloodBankId: string, id: string, actor: string) {
+    const existing = await this.prisma.bloodBankStock.findFirst({ where: { id, bloodBankId } });
+    if (!existing) throw new NotFoundException(`Blood stock ${id} not found`);
+    await this.prisma.bloodBankStock.delete({ where: { id } });
+    await this.audit.record({
+      actor,
+      action: 'BLOOD_STOCK_REMOVED',
+      entityType: 'BloodBankStock',
+      entityId: id,
+      metadata: { bloodBankId },
+    });
   }
 
   // ── P-16 Blood Pre-Alert Queue (FR-BLD-001 / FR-BLDP-001) ───────────────────

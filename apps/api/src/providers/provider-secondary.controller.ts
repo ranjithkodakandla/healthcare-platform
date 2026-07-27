@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -57,6 +58,29 @@ export class ProviderSecondaryController {
     return { data, meta: {} };
   }
 
+  @Post(':providerId/fleet')
+  @ApiOperation({ summary: 'Add an in-house ambulance/vehicle to the fleet' })
+  async createDriver(
+    @Param('providerId') providerId: string,
+    @Body() body: { vehicleReg: string; vehicleType?: string; driverName?: string },
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.secondary.createDriver(providerId, body, user.uid);
+    return { data, meta: {} };
+  }
+
+  @Delete(':providerId/fleet/:driverId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a vehicle from the fleet' })
+  async deleteDriver(
+    @Param('providerId') providerId: string,
+    @Param('driverId') driverId: string,
+    @CurrentUser() user: { uid: string },
+  ) {
+    await this.secondary.deleteDriver(providerId, driverId, user.uid);
+    return { data: { driverId, removed: true }, meta: {} };
+  }
+
   // ── P-15 Pharmacy stock ────────────────────────────────────────────────────
 
   @Get(':providerId/pharmacy/stock')
@@ -82,6 +106,62 @@ export class ProviderSecondaryController {
       user.uid,
     );
     return { data, meta: { updatedCount: data.length } };
+  }
+
+  @Delete(':providerId/pharmacy/stock/:itemId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a medicine line item from stock' })
+  async deletePharmacyItem(
+    @Param('providerId') providerId: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: { uid: string },
+  ) {
+    await this.secondary.deletePharmacyItem(providerId, itemId, user.uid);
+    return { data: { itemId, removed: true }, meta: {} };
+  }
+
+  // ── Blood Bank Stock (in-house inventory CRUD) ──────────────────────────────
+
+  @Get(':providerId/blood/stock')
+  @ApiOperation({ summary: 'In-house blood unit inventory' })
+  async getBloodStock(@Param('providerId') providerId: string) {
+    const data = await this.secondary.getBloodStock(providerId);
+    return { data, meta: { providerId, count: data.length } };
+  }
+
+  @Post(':providerId/blood/stock')
+  @ApiOperation({ summary: 'Add/upsert a blood unit line item' })
+  async createBloodStock(
+    @Param('providerId') providerId: string,
+    @Body() body: { bloodGroup: string; component?: string; unitsAvailable: number; name?: string },
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.secondary.createBloodStock(providerId, body, user.uid);
+    return { data, meta: {} };
+  }
+
+  @Patch(':providerId/blood/stock/:id')
+  @ApiOperation({ summary: 'Update units available for a blood stock line item' })
+  async updateBloodStock(
+    @Param('providerId') providerId: string,
+    @Param('id') id: string,
+    @Body() body: { unitsAvailable: number },
+    @CurrentUser() user: { uid: string },
+  ) {
+    const data = await this.secondary.updateBloodStock(providerId, id, body.unitsAvailable, user.uid);
+    return { data, meta: {} };
+  }
+
+  @Delete(':providerId/blood/stock/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a blood stock line item' })
+  async deleteBloodStock(
+    @Param('providerId') providerId: string,
+    @Param('id') id: string,
+    @CurrentUser() user: { uid: string },
+  ) {
+    await this.secondary.deleteBloodStock(providerId, id, user.uid);
+    return { data: { id, removed: true }, meta: {} };
   }
 
   // ── P-16 Blood pre-alerts ──────────────────────────────────────────────────

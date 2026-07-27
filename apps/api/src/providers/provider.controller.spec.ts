@@ -6,6 +6,8 @@ import { IncomingPatientsService, ClinicalAckService } from '../modules/beds/inc
 import { ProviderUserService } from './provider-user.service';
 import { ProviderConfigService } from './provider-config.service';
 import { ProviderAuditService } from './provider-audit.service';
+import { ProviderDoctorService } from './provider-doctor.service';
+import { ProviderDiagnosticsService } from './provider-diagnostics.service';
 import { AuthGuard } from '../shared-services/auth/auth.guard';
 import { RolesGuard } from '../shared-services/auth/roles.guard';
 import { BedCategory, BedInventoryStatus } from '@sahayak/shared-constants';
@@ -38,6 +40,8 @@ const mockClinicalAck = { acknowledgeHold: jest.fn() };
 const mockProviderUserService = { inviteUser: jest.fn() };
 const mockProviderConfigService = { getHoldExpiryConfig: jest.fn() };
 const mockProviderAuditService = { listForHospital: jest.fn() };
+const mockProviderDoctorService = { list: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn() };
+const mockProviderDiagnosticsService = { list: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn() };
 
 describe('ProviderController', () => {
   let controller: ProviderController;
@@ -53,6 +57,8 @@ describe('ProviderController', () => {
         { provide: ProviderUserService, useValue: mockProviderUserService },
         { provide: ProviderConfigService, useValue: mockProviderConfigService },
         { provide: ProviderAuditService, useValue: mockProviderAuditService },
+        { provide: ProviderDoctorService, useValue: mockProviderDoctorService },
+        { provide: ProviderDiagnosticsService, useValue: mockProviderDiagnosticsService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -229,6 +235,59 @@ describe('ProviderController', () => {
 
       expect(result.data).toHaveLength(1);
       expect(mockProviderAuditService.listForHospital).toHaveBeenCalledWith(HOSPITAL_ID);
+    });
+  });
+
+  describe('Hospital in-house Doctors CRUD', () => {
+    it('lists, adds, updates, and removes an in-house doctor', async () => {
+      mockProviderDoctorService.list.mockResolvedValue([{ id: 'd1', name: 'Dr. X' }]);
+      const listResult = await controller.listDoctors(HOSPITAL_ID);
+      expect(listResult.data).toHaveLength(1);
+
+      mockProviderDoctorService.create.mockResolvedValue({ id: 'd2', name: 'Dr. Y' });
+      const addResult = await controller.addDoctor(
+        HOSPITAL_ID,
+        { name: 'Dr. Y', specialty: 'Cardiology' },
+        { uid: ACTOR_ID },
+      );
+      expect(addResult.data.id).toBe('d2');
+      expect(mockProviderDoctorService.create).toHaveBeenCalledWith(
+        HOSPITAL_ID,
+        { name: 'Dr. Y', specialty: 'Cardiology' },
+        ACTOR_ID,
+      );
+
+      mockProviderDoctorService.update.mockResolvedValue({ id: 'd2', name: 'Dr. Y Updated' });
+      const updateResult = await controller.updateDoctor(HOSPITAL_ID, 'd2', { name: 'Dr. Y Updated' }, { uid: ACTOR_ID });
+      expect(updateResult.data.name).toBe('Dr. Y Updated');
+
+      mockProviderDoctorService.remove.mockResolvedValue(undefined);
+      const removeResult = await controller.removeDoctor(HOSPITAL_ID, 'd2', { uid: ACTOR_ID });
+      expect(removeResult.data).toEqual({ doctorId: 'd2', removed: true });
+    });
+  });
+
+  describe('Hospital in-house Diagnostics CRUD', () => {
+    it('lists, adds, updates, and removes an in-house diagnostic offering', async () => {
+      mockProviderDiagnosticsService.list.mockResolvedValue([{ id: 'o1', testName: 'MRI' }]);
+      const listResult = await controller.listDiagnosticOfferings(HOSPITAL_ID);
+      expect(listResult.data).toHaveLength(1);
+
+      mockProviderDiagnosticsService.create.mockResolvedValue({ id: 'o2', testName: 'CT Scan' });
+      const addResult = await controller.addDiagnosticOffering(
+        HOSPITAL_ID,
+        { testName: 'CT Scan', priceInr: 3000 },
+        { uid: ACTOR_ID },
+      );
+      expect(addResult.data.id).toBe('o2');
+
+      mockProviderDiagnosticsService.update.mockResolvedValue({ id: 'o2', priceInr: 3500 });
+      const updateResult = await controller.updateDiagnosticOffering(HOSPITAL_ID, 'o2', { priceInr: 3500 }, { uid: ACTOR_ID });
+      expect(updateResult.data.priceInr).toBe(3500);
+
+      mockProviderDiagnosticsService.remove.mockResolvedValue(undefined);
+      const removeResult = await controller.removeDiagnosticOffering(HOSPITAL_ID, 'o2', { uid: ACTOR_ID });
+      expect(removeResult.data).toEqual({ offeringId: 'o2', removed: true });
     });
   });
 });

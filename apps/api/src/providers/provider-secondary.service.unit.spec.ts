@@ -21,6 +21,8 @@ describe('ProviderSecondaryService (unit)', () => {
         ]),
         findFirst: jest.fn(),
         update: jest.fn().mockResolvedValue({ id: 'd1' }),
+        create: jest.fn().mockResolvedValue({ id: 'd2', vehicleReg: 'KA-02' }),
+        delete: jest.fn().mockResolvedValue({ id: 'd1' }),
       },
       pharmacyStock: {
         findMany: jest.fn().mockResolvedValue([
@@ -60,6 +62,15 @@ describe('ProviderSecondaryService (unit)', () => {
           lowThreshold: 10,
           criticalThreshold: 2,
         }),
+        findFirst: jest.fn(),
+        delete: jest.fn().mockResolvedValue({ id: 's1' }),
+      },
+      bloodBankStock: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'bs1', bloodGroup: 'O+' }]),
+        upsert: jest.fn().mockResolvedValue({ id: 'bs1', bloodGroup: 'O+', component: 'WHOLE_BLOOD' }),
+        findFirst: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: 'bs1', unitsAvailable: 5 }),
+        delete: jest.fn().mockResolvedValue({ id: 'bs1' }),
       },
       bloodPreAlert: {
         findMany: jest.fn().mockResolvedValue([
@@ -124,5 +135,58 @@ describe('ProviderSecondaryService (unit)', () => {
     );
     prisma.bloodPreAlert.findFirst.mockResolvedValueOnce({ id: 'a1', bloodGroup: 'O+' });
     await service.acknowledgeBloodAlert('bb1', 'a1', 'a');
+  });
+
+  it('fleet create/delete (in-house ambulance CRUD)', async () => {
+    const { service, prisma } = build();
+    await expect(service.createDriver('op', { vehicleReg: '' }, 'a')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createDriver('op', { vehicleReg: 'KA-02', vehicleType: 'BAD' }, 'a'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const created = await service.createDriver('op', { vehicleReg: 'KA-02' }, 'a');
+    expect(created.id).toBe('d2');
+
+    prisma.ambulanceDriver.findFirst.mockResolvedValueOnce(null);
+    await expect(service.deleteDriver('op', 'd1', 'a')).rejects.toBeInstanceOf(NotFoundException);
+    prisma.ambulanceDriver.findFirst.mockResolvedValueOnce({ id: 'd1' });
+    await service.deleteDriver('op', 'd1', 'a');
+    expect(prisma.ambulanceDriver.delete).toHaveBeenCalledWith({ where: { id: 'd1' } });
+  });
+
+  it('pharmacy delete item', async () => {
+    const { service, prisma } = build();
+    prisma.pharmacyStock.findFirst.mockResolvedValueOnce(null);
+    await expect(service.deletePharmacyItem('p1', 's1', 'a')).rejects.toBeInstanceOf(NotFoundException);
+    prisma.pharmacyStock.findFirst.mockResolvedValueOnce({ id: 's1', medicineName: 'Insulin' });
+    await service.deletePharmacyItem('p1', 's1', 'a');
+    expect(prisma.pharmacyStock.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
+  });
+
+  it('blood stock create/update/delete (in-house inventory CRUD)', async () => {
+    const { service, prisma } = build();
+    const stock = await service.getBloodStock('bb1');
+    expect(stock).toHaveLength(1);
+
+    await expect(service.createBloodStock('bb1', { bloodGroup: '', unitsAvailable: 1 }, 'a')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(
+      service.createBloodStock('bb1', { bloodGroup: 'O+', unitsAvailable: -1 }, 'a'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const created = await service.createBloodStock('bb1', { bloodGroup: 'O+', unitsAvailable: 10 }, 'a');
+    expect(created.id).toBe('bs1');
+
+    await expect(service.updateBloodStock('bb1', 'bs1', -1, 'a')).rejects.toBeInstanceOf(BadRequestException);
+    prisma.bloodBankStock.findFirst.mockResolvedValueOnce(null);
+    await expect(service.updateBloodStock('bb1', 'bs1', 5, 'a')).rejects.toBeInstanceOf(NotFoundException);
+    prisma.bloodBankStock.findFirst.mockResolvedValueOnce({ id: 'bs1' });
+    const updated = await service.updateBloodStock('bb1', 'bs1', 5, 'a');
+    expect(updated.unitsAvailable).toBe(5);
+
+    prisma.bloodBankStock.findFirst.mockResolvedValueOnce(null);
+    await expect(service.deleteBloodStock('bb1', 'bs1', 'a')).rejects.toBeInstanceOf(NotFoundException);
+    prisma.bloodBankStock.findFirst.mockResolvedValueOnce({ id: 'bs1' });
+    await service.deleteBloodStock('bb1', 'bs1', 'a');
+    expect(prisma.bloodBankStock.delete).toHaveBeenCalledWith({ where: { id: 'bs1' } });
   });
 });
