@@ -41,8 +41,8 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="w-full max-w-[400px] bg-white rounded-lg border border-[#C7CDD0] p-6 sm:p-9 mx-4">
         <div className="w-11 h-11 rounded-md bg-[#1A1D1F] flex items-center justify-center mb-5" aria-hidden>
           <svg width="16" height="16" fill="none" viewBox="0 0 14 14">
-            <rect x="5" y="0" width="4" height="14" rx="1" fill="white" />
-            <rect x="0" y="5" width="14" height="4" rx="1" fill="white" />
+            <rect x="5" y="0" width="4" height="14" rx="1" fill="#C62E2E" />
+            <rect x="0" y="5" width="14" height="4" rx="1" fill="#C62E2E" />
           </svg>
         </div>
 
