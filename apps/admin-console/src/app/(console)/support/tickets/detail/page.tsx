@@ -50,7 +50,7 @@ function TicketDetailContent() {
     try {
       const res = await adminApi.support.getTicket(id);
       setTicket(res.data);
-      setNote(res.data.internalNotes ?? '');
+      setNote(sanitizeHtmlInput(res.data.internalNotes ?? ''));
       setError(null);
     } catch (err: unknown) {
       setTicket(null);
