@@ -42,6 +42,8 @@ describe('adminApi', () => {
     await adminApi.providers.hospitalIncomingQueue('hosp-1');
     await adminApi.users.list();
     await adminApi.users.create('agent@sahayak.test', 'SUPPORT_AGENT');
+    await adminApi.users.create('agent2@sahayak.test', 'SUPPORT_AGENT', 'Password@01');
+    await adminApi.users.resyncClaims('u1');
     await adminApi.support.listTickets({ requesterType: 'CITIZEN', q: 'x' });
     await adminApi.support.listTickets();
     await adminApi.support.getTicket('t1');

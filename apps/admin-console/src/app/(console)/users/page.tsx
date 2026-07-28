@@ -35,11 +35,13 @@ export default function UsersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('SUPPORT_AGENT');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviteFieldError, setInviteFieldError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [manageUser, setManageUser] = useState<ConsoleUserRow | null>(null);
   const [manageRole, setManageRole] = useState('SUPPORT_AGENT');
   const [manageBusy, setManageBusy] = useState(false);
+  const [resyncMsg, setResyncMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +67,23 @@ export default function UsersPage() {
     setManageUser(u);
     setManageRole(u.role);
     setError(null);
+    setResyncMsg(null);
+  };
+
+  const resyncClaims = async () => {
+    if (!manageUser) return;
+    setManageBusy(true);
+    setError(null);
+    setResyncMsg(null);
+    try {
+      await adminApi.users.resyncClaims(manageUser.id);
+      setResyncMsg('Console access re-synced — they may need to sign out and back in.');
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Resync failed');
+    } finally {
+      setManageBusy(false);
+    }
   };
 
   const saveManage = async () => {
@@ -113,9 +132,10 @@ export default function UsersPage() {
     setInviteFieldError(null);
     setInviting(true);
     try {
-      await adminApi.users.create(email, inviteRole);
+      await adminApi.users.create(email, inviteRole, invitePassword.trim() || undefined);
       setInviteOpen(false);
       setInviteEmail('');
+      setInvitePassword('');
       await load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invite failed');
@@ -148,6 +168,9 @@ export default function UsersPage() {
         <Card padding="md" className="mb-4">
           <div className="text-[13px] font-semibold text-[#1A1D1F] mb-1">Manage staff</div>
           <div className="text-[12px] text-[#7C8388] mb-3">{manageUser.email}</div>
+          {resyncMsg && (
+            <div className="mb-3 text-[12px] text-[#0E6B3A]" role="status">{resyncMsg}</div>
+          )}
           <div className="flex gap-3 flex-wrap items-end">
             <div className="min-w-[220px]">
               <label className="text-[11px] text-[#7C8388] font-medium block mb-1">Role</label>
@@ -173,6 +196,15 @@ export default function UsersPage() {
                 Reactivate
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void resyncClaims()}
+              disabled={manageBusy}
+              title="Re-stamp their console access permission if sign-in says access is denied"
+            >
+              Resync access
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setManageUser(null)} disabled={manageBusy}>
               Close
             </Button>
@@ -219,10 +251,27 @@ export default function UsersPage() {
                 ))}
               </select>
             </div>
+            <div className="min-w-[200px]">
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1" htmlFor="invite-password">
+                Temporary password (optional)
+              </label>
+              <input
+                id="invite-password"
+                type="text"
+                value={invitePassword}
+                onChange={(e) => setInvitePassword(e.target.value)}
+                className="w-full h-9 px-3 rounded-md border border-[#E7EBEC] text-[13px]"
+                placeholder="Leave blank to invite only"
+              />
+            </div>
             <Button size="sm" onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
               {inviting ? 'Sending…' : 'Send invite'}
             </Button>
           </div>
+          <p className="text-[11px] text-[#7C8388] mt-2">
+            Setting a temporary password provisions their console sign-in immediately. Leave blank to just
+            reserve the role for an account that already exists in Firebase (e.g. from another portal).
+          </p>
         </Card>
       )}
 

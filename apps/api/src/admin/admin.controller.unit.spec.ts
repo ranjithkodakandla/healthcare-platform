@@ -30,6 +30,7 @@ describe('AdminController (unit)', () => {
       listConsoleUsers: jest.fn().mockResolvedValue([{ id: 'u1' }]),
       createConsoleUser: jest.fn().mockResolvedValue({ id: 'u1' }),
       updateConsoleUser: jest.fn().mockResolvedValue({ id: 'u1', status: 'ACTIVE' }),
+      resyncConsoleClaims: jest.fn().mockResolvedValue({ email: 'ranjith@sahyak.test', firebaseUid: 'fb1' }),
     };
     const c = new AdminController(onboarding as never, consoleUsers as never);
     const user = { uid: 'admin' };
@@ -46,6 +47,9 @@ describe('AdminController (unit)', () => {
     expect(resync.data.providerType).toBe('HOSPITAL');
     await c.listConsoleUsers(user as never);
     await c.createConsoleUser({ email: 'a@b.co', role: 'CONSOLE_ADMINISTRATOR' } as never, user as never);
+    const claimsResync = await c.resyncConsoleClaims('u1', user as never);
+    expect(consoleUsers.resyncConsoleClaims).toHaveBeenCalledWith('u1', 'admin');
+    expect(claimsResync.data.firebaseUid).toBe('fb1');
     expect(onboarding.isPortalLive).toHaveBeenCalled();
   });
 });

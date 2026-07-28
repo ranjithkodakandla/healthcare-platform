@@ -179,10 +179,21 @@ export class AdminController {
     const created = await this.consoleUsers.createConsoleUser({
       email: body.email,
       role: body.role,
+      password: body.password,
       actor: user.uid,
     });
 
     return { data: created, meta: {}, errors: [] };
+  }
+
+  // Re-stamps an existing console user's Firebase custom claims (`role: ADMIN` +
+  // `consoleRole`) without resetting their password — the backfill path for
+  // accounts created before claim-stamping existed (e.g. via direct DB insert).
+  @Post('console-users/:id/resync-claims')
+  async resyncConsoleClaims(@Param('id') id: string, @CurrentUser() user: AuthenticatedPrincipal) {
+    await this.consoleUsers.requireConsoleRole(user.uid, [ConsoleRole.CONSOLE_ADMINISTRATOR]);
+    const result = await this.consoleUsers.resyncConsoleClaims(id, user.uid);
+    return { data: result, meta: {}, errors: [] };
   }
 
   @Patch('console-users/:id')

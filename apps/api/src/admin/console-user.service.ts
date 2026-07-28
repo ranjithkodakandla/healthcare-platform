@@ -1,14 +1,25 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ConsoleUser } from '@prisma/client';
-import { ConsoleRole } from '@sahayak/shared-constants';
+import * as admin from 'firebase-admin';
+import { ConsoleRole, Role } from '@sahayak/shared-constants';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../shared-services/audit/audit.service';
+import { getFirebaseAdminApp } from '../shared-services/auth/firebase-admin.app';
 
 export interface CreateConsoleUserInput {
   email: string;
   role: ConsoleRole;
   actor: string;
   firebaseUid?: string; // set once the user has actually logged in via Firebase (DL-007)
+  /** Optional — provisions/resets a real Firebase login (with `Role.ADMIN` + `consoleRole` claims) in the same step. */
+  password?: string;
 }
 
 /** Practical email check — reject access grants for malformed addresses. */
@@ -34,13 +45,24 @@ export class ConsoleUserService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly config: ConfigService,
   ) {}
 
   async createConsoleUser(input: CreateConsoleUserInput): Promise<ConsoleUser> {
     const email = assertValidConsoleEmail(input.email);
+    let firebaseUid = input.firebaseUid;
+
+    if (input.password) {
+      firebaseUid = await this.provisionConsoleLogin({
+        email,
+        password: input.password,
+        consoleRole: input.role,
+      });
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.consoleUser.create({
-        data: { email, role: input.role, firebaseUid: input.firebaseUid },
+        data: { email, role: input.role, firebaseUid },
       });
 
       await this.audit.record(
@@ -49,7 +71,7 @@ export class ConsoleUserService {
           action: 'CONSOLE_USER_CREATED',
           entityType: 'ConsoleUser',
           entityId: user.id,
-          metadata: { role: input.role },
+          metadata: { role: input.role, firebaseUid },
         },
         tx,
       );
@@ -108,7 +130,88 @@ export class ConsoleUserService {
       return row;
     });
 
+    // Keep the Firebase claim in sync so a role change (or reactivation) takes
+    // effect on the account's next token refresh, not just in the ConsoleUser row.
+    if (updated.firebaseUid && input.role != null) {
+      const auth = this.getFirebaseAuth();
+      await this.stampConsoleClaims(auth, updated.firebaseUid, updated.role as ConsoleRole);
+    }
+
     return updated;
+  }
+
+  // Re-stamps `{ role: Role.ADMIN, consoleRole }` Firebase custom claims for an
+  // existing console user without touching their password — the fix path for
+  // accounts created before claim-stamping existed, or any other claims drift.
+  // Mirrors ProviderOnboardingService.resyncPortalClaims.
+  async resyncConsoleClaims(id: string, actor: string): Promise<{ email: string; firebaseUid: string }> {
+    const user = await this.prisma.consoleUser.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException(`ConsoleUser ${id} not found`);
+
+    const auth = this.getFirebaseAuth();
+    let firebaseUid = user.firebaseUid;
+    if (!firebaseUid) {
+      const record = await auth.getUserByEmail(user.email);
+      firebaseUid = record.uid;
+      await this.prisma.consoleUser.update({ where: { id }, data: { firebaseUid } });
+    }
+
+    await this.stampConsoleClaims(auth, firebaseUid, user.role as ConsoleRole);
+
+    await this.audit.record({
+      actor,
+      action: 'CONSOLE_USER_CLAIMS_RESYNCED',
+      entityType: 'ConsoleUser',
+      entityId: id,
+      metadata: { email: user.email, firebaseUid },
+    });
+
+    return { email: user.email, firebaseUid };
+  }
+
+  private getFirebaseAuth(): admin.auth.Auth {
+    try {
+      return admin.auth(getFirebaseAdminApp(this.config));
+    } catch {
+      throw new ServiceUnavailableException('Firebase is not configured — cannot manage console user credentials');
+    }
+  }
+
+  private async stampConsoleClaims(
+    auth: admin.auth.Auth,
+    uid: string,
+    consoleRole: ConsoleRole,
+  ): Promise<void> {
+    // `Role.ADMIN` is what RolesGuard's class-level `@Roles(Role.ADMIN)` on
+    // AdminController/AdminStatsController checks; `consoleRole` is read by
+    // requireConsoleRole's DB lookup (kept as a claim too for debuggability).
+    await auth.setCustomUserClaims(uid, { role: Role.ADMIN, consoleRole });
+  }
+
+  private async provisionConsoleLogin(input: {
+    email: string;
+    password: string;
+    consoleRole: ConsoleRole;
+  }): Promise<string> {
+    const auth = this.getFirebaseAuth();
+    let uid: string;
+    try {
+      const existing = await auth.getUserByEmail(input.email);
+      uid = existing.uid;
+      await auth.updateUser(uid, { password: input.password, emailVerified: true, disabled: false });
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code !== 'auth/user-not-found') throw err;
+      const created = await auth.createUser({
+        email: input.email,
+        password: input.password,
+        emailVerified: true,
+      });
+      uid = created.uid;
+    }
+
+    await this.stampConsoleClaims(auth, uid, input.consoleRole);
+    return uid;
   }
 
   // I7 ABAC layer: "attribute-based rules atop RBAC where role alone is

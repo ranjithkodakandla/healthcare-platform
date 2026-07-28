@@ -295,11 +295,14 @@ export const adminApi = {
     list(): Promise<{ data: ConsoleUserRow[]; meta: { count: number } }> {
       return request('GET', '/v1/admin/console-users');
     },
-    create(email: string, role: string): Promise<{ data: ConsoleUserRow }> {
-      return request('POST', '/v1/admin/console-users', { email, role });
+    create(email: string, role: string, password?: string): Promise<{ data: ConsoleUserRow }> {
+      return request('POST', '/v1/admin/console-users', { email, role, password });
     },
     update(id: string, body: { role?: string; status?: string }): Promise<{ data: ConsoleUserRow }> {
       return request('PATCH', `/v1/admin/console-users/${id}`, body);
+    },
+    resyncClaims(id: string): Promise<{ data: { email: string; firebaseUid: string } }> {
+      return request('POST', `/v1/admin/console-users/${id}/resync-claims`);
     },
   },
   support: {
