@@ -9,6 +9,41 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { adminApi, type SupportTicket, ApiError } from '@/lib/api';
+import { sanitizeHtmlInput } from '@/lib/utils';
+
+// ── Note entry types ─────────────────────────────────────────────────────────
+
+interface NoteEntry {
+  text: string;
+  createdAt: string; // ISO string
+}
+
+/**
+ * Parse internalNotes from DB.
+ * - New format: JSON array of NoteEntry objects (newest-first after sort).
+ * - Legacy format: plain text string — wrapped as a single entry with no timestamp.
+ */
+function parseNotes(raw: string | null | undefined): NoteEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return (parsed as NoteEntry[]).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    }
+  } catch {
+    // Not JSON — treat as single legacy plain-text entry
+  }
+  const sanitized = sanitizeHtmlInput(raw);
+  return sanitized ? [{ text: sanitized, createdAt: '' }] : [];
+}
+
+function serializeNotes(entries: NoteEntry[]): string {
+  return JSON.stringify(entries);
+}
+
+// ── Variant helpers ──────────────────────────────────────────────────────────
 
 function prioVariant(p: string): 'danger' | 'warning' | 'info' {
   if (p === 'HIGH') return 'danger';
@@ -23,14 +58,18 @@ function statusVariant(s: string): 'warning' | 'info' | 'success' | 'neutral' {
   return 'neutral';
 }
 
+// ── Main component ───────────────────────────────────────────────────────────
+
 function TicketDetailContent() {
   const params = useSearchParams();
   const id = params.get('id') ?? '';
   const from = params.get('from');
   const backHref =
     from === 'provider' ? '/support/provider-tickets' : '/support/tickets';
+
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
-  const [note, setNote] = useState('');
+  const [noteEntries, setNoteEntries] = useState<NoteEntry[]>([]);
+  const [newNote, setNewNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [justification, setJustification] = useState('');
@@ -49,7 +88,7 @@ function TicketDetailContent() {
     try {
       const res = await adminApi.support.getTicket(id);
       setTicket(res.data);
-      setNote('');
+      setNoteEntries(parseNotes(res.data.internalNotes));
       setError(null);
     } catch (err: unknown) {
       setTicket(null);
@@ -68,13 +107,21 @@ function TicketDetailContent() {
 
   const isClosed = ticket?.status === 'RESOLVED' || ticket?.status === 'CLOSED';
 
-  const saveNote = async () => {
-    if (!ticket || !note.trim()) return;
+  const addNote = async () => {
+    if (!ticket || isClosed) return;
+    const cleanText = sanitizeHtmlInput(newNote).trim();
+    if (!cleanText) return;
     setSaving(true);
     try {
-      const res = await adminApi.support.updateTicket(ticket.id, { internalNotes: note });
+      // Prepend new entry so newest is first
+      const newEntry: NoteEntry = { text: cleanText, createdAt: new Date().toISOString() };
+      const updated = [newEntry, ...noteEntries];
+      const res = await adminApi.support.updateTicket(ticket.id, {
+        internalNotes: serializeNotes(updated),
+      });
       setTicket(res.data);
-      setNote('');
+      setNoteEntries(parseNotes(res.data.internalNotes));
+      setNewNote(''); // clear input
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -164,35 +211,96 @@ function TicketDetailContent() {
               </p>
             </Card>
 
+            {/* ── Internal Notes ── */}
             <Card padding="md">
-              <div className="text-[13px] font-semibold text-[#1A1D1F] mb-2">Internal notes</div>
-              {ticket.internalNotes ? (
-                <div className="mb-3 rounded-md px-3 py-2 text-[13px] text-[#4A5054] whitespace-pre-wrap" style={{ background: '#F2F4F5' }}>
-                  {ticket.internalNotes}
-                </div>
-              ) : (
-                <div className="mb-3 text-[12px] text-[#7C8388]">No notes yet.</div>
-              )}
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[13px] font-semibold text-[#1A1D1F]">Internal notes</div>
+                {noteEntries.length > 0 && (
+                  <Badge variant="neutral">
+                    {noteEntries.length} {noteEntries.length === 1 ? 'entry' : 'entries'}
+                  </Badge>
+                )}
+              </div>
+
               {isClosed && (
                 <div className="mb-3 text-[12px] font-medium" style={{ color: '#7C8388' }}>
                   This ticket is {ticket.status.toLowerCase()}. Reopen it to add notes or resolve again.
                 </div>
               )}
+
+              {/* New note textarea */}
               <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="w-full min-h-[100px] border border-[#C7CDD0] rounded-md p-3 text-[13px] disabled:opacity-50"
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                className="w-full min-h-[88px] border border-[#C7CDD0] rounded-md p-3 text-[13px] resize-y disabled:opacity-50"
                 placeholder="Add an internal note…"
                 disabled={isClosed}
               />
-              <div className="flex gap-2 mt-3">
-                <Button size="sm" onClick={saveNote} disabled={saving || isClosed || !note.trim()}>Save note</Button>
-                <Button size="sm" variant="secondary" onClick={() => setStatus('IN_PROGRESS')} disabled={saving || isClosed}>Mark in progress</Button>
-                <Button size="sm" variant="outline" onClick={() => setStatus('RESOLVED')} disabled={saving || isClosed}>Resolve</Button>
+              <div className="flex gap-2 mt-2 mb-4">
+                <Button
+                  size="sm"
+                  onClick={addNote}
+                  disabled={saving || isClosed || !newNote.trim()}
+                >
+                  Add note
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setStatus('IN_PROGRESS')} disabled={saving || isClosed}>
+                  Mark in progress
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setStatus('RESOLVED')} disabled={saving || isClosed}>
+                  Resolve
+                </Button>
                 {isClosed && (
-                  <Button size="sm" variant="ghost" onClick={() => setStatus('IN_PROGRESS')} disabled={saving}>Reopen ticket</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setStatus('IN_PROGRESS')} disabled={saving}>
+                    Reopen ticket
+                  </Button>
                 )}
               </div>
+
+              {/* Notes log — newest first */}
+              {noteEntries.length === 0 ? (
+                <div className="text-[12px] text-[#7C8388]">No notes yet.</div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {noteEntries.map((entry, i) => (
+                    <div
+                      key={i}
+                      className="rounded-md px-3 py-2.5 border border-[#E7EBEC]"
+                      style={{ background: i === 0 ? '#F0FAF9' : '#FAFBFB' }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        {i === 0 && (
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-wide"
+                            style={{ color: '#0B5C66' }}
+                          >
+                            Latest
+                          </span>
+                        )}
+                        {entry.createdAt ? (
+                          <span className="text-[11px] text-[#7C8388] ml-auto">
+                            {new Date(entry.createdAt).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[#7C8388] ml-auto italic">
+                            Legacy entry
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[13px] text-[#4A5054] whitespace-pre-wrap">
+                        {entry.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
