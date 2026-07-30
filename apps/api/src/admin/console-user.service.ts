@@ -151,8 +151,23 @@ export class ConsoleUserService {
     const auth = this.getFirebaseAuth();
     let firebaseUid = user.firebaseUid;
     if (!firebaseUid) {
-      const record = await auth.getUserByEmail(user.email);
-      firebaseUid = record.uid;
+      // A console user created without a password (UAT #35) never got a Firebase
+      // account provisioned, so there is nothing to look up by email — previously
+      // this threw Firebase's raw `auth/user-not-found` error uncaught, surfacing to
+      // the admin as an opaque "Something went wrong" (UAT #36). Give a specific,
+      // actionable error instead of resync silently assuming an account exists.
+      try {
+        const record = await auth.getUserByEmail(user.email);
+        firebaseUid = record.uid;
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code;
+        if (code === 'auth/user-not-found') {
+          throw new BadRequestException(
+            `${user.email} has no console sign-in yet — set a password for this user before resyncing access.`,
+          );
+        }
+        throw err;
+      }
       await this.prisma.consoleUser.update({ where: { id }, data: { firebaseUid } });
     }
 
@@ -164,6 +179,37 @@ export class ConsoleUserService {
       entityType: 'ConsoleUser',
       entityId: id,
       metadata: { email: user.email, firebaseUid },
+    });
+
+    return { email: user.email, firebaseUid };
+  }
+
+  // Fixes UAT #35: a console user created with no password (optional field) had no
+  // way for an admin to set or reset one afterward, so that user could never log in
+  // and "resync access" (above) had nothing to resync. Reuses provisionConsoleLogin
+  // (create-if-missing / update-if-existing Firebase account) and stamps claims the
+  // same way createConsoleUser does when credentials are supplied up front.
+  async setConsolePassword(id: string, password: string, actor: string): Promise<{ email: string; firebaseUid: string }> {
+    if (!password || password.length < 8) {
+      throw new BadRequestException('password must be at least 8 characters');
+    }
+    const user = await this.prisma.consoleUser.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException(`ConsoleUser ${id} not found`);
+
+    const firebaseUid = await this.provisionConsoleLogin({
+      email: user.email,
+      password,
+      consoleRole: user.role as ConsoleRole,
+    });
+
+    await this.prisma.consoleUser.update({ where: { id }, data: { firebaseUid } });
+
+    await this.audit.record({
+      actor,
+      action: 'CONSOLE_USER_PASSWORD_SET',
+      entityType: 'ConsoleUser',
+      entityId: id,
+      metadata: { email: user.email },
     });
 
     return { email: user.email, firebaseUid };

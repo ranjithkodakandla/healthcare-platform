@@ -41,8 +41,6 @@ export default function KnowledgeBasePage() {
     [articles, active],
   );
 
-  const selected = articles.find((a) => a.id === selectedId) ?? null;
-
   async function handleCreate() {
     if (!title.trim() || !body.trim()) {
       setError('Title and body are required');
@@ -143,30 +141,44 @@ export default function KnowledgeBasePage() {
         <div className="flex-1 flex flex-col gap-3">
           {loading && <p className="text-[13px] text-[#7C8388]">Loading…</p>}
           {!loading && filtered.length === 0 && <p className="text-[13px] text-[#7C8388]">No articles</p>}
-          {filtered.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => setSelectedId(a.id)}
-              className="text-left"
-            >
-              <Card>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388] mb-1">{a.category}</div>
-                <div className="text-[15px] font-bold text-[#1A1D1F] mb-1">{a.title}</div>
-                <div className="text-[12px] text-[#4A5054] mb-2 line-clamp-2">{a.body || '—'}</div>
+          {filtered.map((a) =>
+            a.id === selectedId ? (
+              // Selected article renders expanded in place — previously the compact
+              // card stayed in the list AND a second full-content card was appended
+              // at the bottom, making the (usually most-recent/last) selected item
+              // appear twice on the page in two different views.
+              <Card key={a.id} padding="md">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388]">{a.category}</div>
+                  <button type="button" onClick={() => setSelectedId(null)} className="text-[11px] font-semibold text-[#0B5C66]">
+                    Collapse
+                  </button>
+                </div>
+                <div className="text-[18px] font-bold text-[#1A1D1F] mb-2">{a.title}</div>
+                <div className="text-[13px] text-[#4A5054] whitespace-pre-wrap mb-2">{a.body || 'No content yet for this article.'}</div>
                 <div className="flex justify-between text-[11px] text-[#7C8388]">
                   <span>Updated {new Date(a.updatedAt).toLocaleDateString()}</span>
                   <span>{a.note ?? ''}</span>
                 </div>
               </Card>
-            </button>
-          ))}
-          {selected && (
-            <Card padding="md">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388] mb-1">{selected.category}</div>
-              <div className="text-[18px] font-bold text-[#1A1D1F] mb-3">{selected.title}</div>
-              <div className="text-[13px] text-[#4A5054] whitespace-pre-wrap">{selected.body}</div>
-            </Card>
+            ) : (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setSelectedId(a.id)}
+                className="text-left"
+              >
+                <Card>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#7C8388] mb-1">{a.category}</div>
+                  <div className="text-[15px] font-bold text-[#1A1D1F] mb-1">{a.title}</div>
+                  <div className="text-[12px] text-[#4A5054] mb-2 line-clamp-2">{a.body || 'No content yet for this article.'}</div>
+                  <div className="flex justify-between text-[11px] text-[#7C8388]">
+                    <span>Updated {new Date(a.updatedAt).toLocaleDateString()}</span>
+                    <span>{a.note ?? ''}</span>
+                  </div>
+                </Card>
+              </button>
+            ),
           )}
         </div>
       </div>

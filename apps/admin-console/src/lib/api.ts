@@ -206,6 +206,8 @@ export interface ConfigGroup {
 export interface AuditRow {
   id: string;
   actor: string;
+  /** Human-readable actor (email + console role) when resolvable, else falls back to `actor` (Firebase UID). */
+  actorLabel?: string;
   action: string;
   entityType: string;
   entityId: string;
@@ -303,6 +305,9 @@ export const adminApi = {
     },
     resyncClaims(id: string): Promise<{ data: { email: string; firebaseUid: string } }> {
       return request('POST', `/v1/admin/console-users/${id}/resync-claims`);
+    },
+    setPassword(id: string, password: string): Promise<{ data: { email: string; firebaseUid: string } }> {
+      return request('POST', `/v1/admin/console-users/${id}/password`, { password });
     },
   },
   support: {
@@ -482,9 +487,9 @@ export interface SlaRow {
   category?: string;
   volume?: number;
   volumeLabel?: string;
-  compliancePercent?: number;
+  compliancePercent?: number | null;
   status: string;
-  variant: 'success' | 'warning' | 'danger';
+  variant: 'success' | 'warning' | 'danger' | 'neutral';
 }
 
 export interface SlaSnapshot {

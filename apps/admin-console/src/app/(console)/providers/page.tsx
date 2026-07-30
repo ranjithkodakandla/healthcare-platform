@@ -165,7 +165,18 @@ export default function ProvidersPage() {
                       {detail.registry.city ? ` · ${detail.registry.city}` : ''}
                     </div>
                   </div>
-                  <Badge variant="success">Live registry</Badge>
+                  {/* UAT #32: this badge previously always read "Live registry" even
+                      while the onboarding stage below it showed the provider was still
+                      mid-onboarding — two simultaneous, contradictory status signals.
+                      It now reflects the same source of truth (application stage) the
+                      line beneath it uses. */}
+                  {!detail.application || detail.application.currentStage === 'PORTAL_ACCESS_ACTIVATED' ? (
+                    <Badge variant="success">Live · portal access active</Badge>
+                  ) : detail.application.currentStage === 'REJECTED' ? (
+                    <Badge variant="danger">Rejected</Badge>
+                  ) : (
+                    <Badge variant="warning">Onboarding in progress — not live yet</Badge>
+                  )}
                 </div>
                 {detail.application && (
                   <div className="mt-3 text-[12px] text-[#4A5054]">

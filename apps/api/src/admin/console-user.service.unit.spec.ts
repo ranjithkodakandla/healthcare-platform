@@ -172,6 +172,57 @@ describe('ConsoleUserService (unit)', () => {
     await expect(service.resyncConsoleClaims('missing', 'admin')).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('resyncConsoleClaims gives an actionable error for a user with no Firebase sign-in yet (UAT #36)', async () => {
+    const { service, prisma } = build();
+    const noAccountUser = {
+      id: 'u1',
+      email: 'noaccount@sahayak.test',
+      role: ConsoleRole.SUPPORT_AGENT,
+      firebaseUid: null,
+    };
+    prisma.consoleUser.findUnique.mockResolvedValue(noAccountUser);
+    const fbAuth = admin.auth();
+    (fbAuth.getUserByEmail as jest.Mock).mockRejectedValue({ code: 'auth/user-not-found' });
+
+    await expect(service.resyncConsoleClaims('u1', 'admin')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.resyncConsoleClaims('u1', 'admin')).rejects.toThrow(/set a password/i);
+  });
+
+  it('setConsolePassword provisions a Firebase login for a password-less console user (UAT #35)', async () => {
+    const { service, prisma } = build();
+    prisma.consoleUser.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'noaccount@sahayak.test',
+      role: ConsoleRole.SUPPORT_AGENT,
+      firebaseUid: null,
+    });
+    const fbAuth = admin.auth();
+    (fbAuth.getUserByEmail as jest.Mock).mockRejectedValueOnce({ code: 'auth/user-not-found' });
+    (fbAuth.createUser as jest.Mock).mockResolvedValueOnce({ uid: 'fb-new-2' });
+
+    const result = await service.setConsolePassword('u1', 'BrandNewPass1', 'admin');
+
+    expect(fbAuth.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'noaccount@sahayak.test', password: 'BrandNewPass1' }),
+    );
+    expect(prisma.consoleUser.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { firebaseUid: 'fb-new-2' },
+    });
+    expect(result).toEqual({ email: 'noaccount@sahayak.test', firebaseUid: 'fb-new-2' });
+  });
+
+  it('setConsolePassword rejects a too-short password', async () => {
+    const { service, prisma } = build();
+    prisma.consoleUser.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      email: 'noaccount@sahayak.test',
+      role: ConsoleRole.SUPPORT_AGENT,
+      firebaseUid: null,
+    });
+    await expect(service.setConsolePassword('u1', 'short', 'admin')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('updateConsoleUser re-stamps claims when a linked user changes role', async () => {
     const { service, prisma, tx } = build();
     prisma.consoleUser.findUnique.mockResolvedValueOnce({

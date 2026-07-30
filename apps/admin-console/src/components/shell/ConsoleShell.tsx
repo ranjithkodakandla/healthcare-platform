@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
-import { getAdminToken } from '@/lib/api';
+import { getAdminToken, getAdminProfile, type AdminProfile } from '@/lib/api';
+import { signOutAdmin } from '@/lib/auth';
 
 function IconMenu() {
   return (
@@ -27,6 +28,7 @@ function IconClose() {
 export function ConsoleShell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [authed, setAuthed] = useState(false);
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
 
   useEffect(() => {
     if (!getAdminToken()) {
@@ -34,6 +36,7 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
       return;
     }
     setAuthed(true);
+    setProfile(getAdminProfile());
   }, []);
 
   useEffect(() => {
@@ -104,6 +107,23 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
           </button>
           <span className="text-sm font-bold text-[#1A1D1F]">Admin Console</span>
         </div>
+        {/* UAT #1: profile name/email + sign-out previously lived only at the bottom
+            of the (potentially long, scrolled-past) sidebar. This top-of-page bar
+            surfaces the same identity + sign-out within one glance/click from any
+            screen, without removing the existing sidebar control. */}
+        {profile && (
+          <div className="hidden lg:flex items-center justify-end gap-3 px-6 py-2 border-b border-[#E7EBEC] bg-white text-[12px]">
+            <span className="text-[#1A1D1F] font-semibold">{profile.displayName || profile.email}</span>
+            <span className="text-[#7C8388]">{profile.email}</span>
+            <button
+              type="button"
+              onClick={() => void signOutAdmin()}
+              className="text-[#0B5C66] font-semibold hover:underline"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
         <main className="flex-1 min-w-0 admin-main-pad overflow-y-auto">
           <div className="max-w-[1560px] mx-auto w-full">{children}</div>
         </main>

@@ -27,8 +27,21 @@ function statusLabel(s: string): string {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const PRIORITY_RANK: Record<string, number> = { HIGH: 0, MED: 1, LOW: 2 };
+
+type SortKey = 'ticketNumber' | 'requester' | 'priority' | 'status' | 'assignedAgent';
+
+function compareTickets(a: SupportTicket, b: SupportTicket, key: SortKey): number {
+  if (key === 'priority') return (PRIORITY_RANK[a.priority] ?? 99) - (PRIORITY_RANK[b.priority] ?? 99);
+  const av = (key === 'assignedAgent' ? a.assignedAgent : a[key]) ?? '';
+  const bv = (key === 'assignedAgent' ? b.assignedAgent : b[key]) ?? '';
+  return String(av).localeCompare(String(bv));
+}
+
 export default function SupportTicketsPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -54,6 +67,21 @@ export default function SupportTicketsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const sortedTickets = (() => {
+    if (!sortKey) return tickets;
+    const sorted = [...tickets].sort((a, b) => compareTickets(a, b, sortKey));
+    return sortDir === 'asc' ? sorted : sorted.reverse();
+  })();
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
 
   const handleCreate = async () => {
     if (!subject.trim() || !requester.trim()) {
@@ -154,9 +182,22 @@ export default function SupportTicketsPage() {
         <ResponsiveTable><table className="w-full text-[13px]">
           <thead>
             <tr className="border-b border-[#E7EBEC] bg-[#F2F4F5]">
-              {['ID', 'Requester', 'Subject', 'Priority', 'Status', 'Agent', ''].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#7C8388] uppercase tracking-wider whitespace-nowrap">
+              {([
+                ['ID', 'ticketNumber'],
+                ['Requester', 'requester'],
+                ['Subject', null],
+                ['Priority', 'priority'],
+                ['Status', 'status'],
+                ['Agent', 'assignedAgent'],
+                ['', null],
+              ] as const).map(([h, key]) => (
+                <th
+                  key={h || 'actions'}
+                  onClick={key ? () => toggleSort(key) : undefined}
+                  className={`px-4 py-2.5 text-left text-[11px] font-semibold text-[#7C8388] uppercase tracking-wider whitespace-nowrap ${key ? 'cursor-pointer select-none hover:text-[#1A1D1F]' : ''}`}
+                >
                   {h}
+                  {key && sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
               ))}
             </tr>
@@ -168,7 +209,7 @@ export default function SupportTicketsPage() {
             {!loading && tickets.length === 0 && (
               <tr><td colSpan={7} className="px-4 py-6 text-[#7C8388]">No support tickets.</td></tr>
             )}
-            {tickets.map((t, i) => (
+            {sortedTickets.map((t, i) => (
               <tr key={t.id} className={`border-b border-[#E7EBEC] ${i === 0 ? 'bg-[#F3FBFC]' : 'bg-white'}`}>
                 <td className="px-4 py-3 font-mono text-[12px] text-[#0B5C66]">{t.ticketNumber}</td>
                 <td className="px-4 py-3">

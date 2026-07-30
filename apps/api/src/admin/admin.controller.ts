@@ -196,6 +196,19 @@ export class AdminController {
     return { data: result, meta: {}, errors: [] };
   }
 
+  // Sets/resets a console user's password — the missing fix path for UAT #35 (a user
+  // created without a password had no way to ever be given one, so could never log in).
+  @Post('console-users/:id/password')
+  async setConsolePassword(
+    @Param('id') id: string,
+    @Body() body: { password: string },
+    @CurrentUser() user: AuthenticatedPrincipal,
+  ) {
+    await this.consoleUsers.requireConsoleRole(user.uid, [ConsoleRole.CONSOLE_ADMINISTRATOR]);
+    const result = await this.consoleUsers.setConsolePassword(id, body.password, user.uid);
+    return { data: result, meta: {}, errors: [] };
+  }
+
   @Patch('console-users/:id')
   async updateConsoleUser(
     @Param('id') id: string,

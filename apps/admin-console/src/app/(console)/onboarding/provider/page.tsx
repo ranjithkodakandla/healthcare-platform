@@ -47,8 +47,8 @@ export default function ProviderOnboardingPage() {
   const [providerType, setProviderType] = useState<string>('HOSPITAL');
   const [orgId, setOrgId] = useState('');
   const [portalEmail, setPortalEmail] = useState('');
-  const [portalPassword, setPortalPassword] = useState('Password@01');
-  const [city, setCity] = useState('Bengaluru');
+  const [portalPassword, setPortalPassword] = useState('');
+  const [city, setCity] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -103,7 +103,8 @@ export default function ProviderOnboardingPage() {
       setLegalName('');
       setOrgId('');
       setPortalEmail('');
-      setPortalPassword('Password@01');
+      setPortalPassword('');
+      setCity('');
       setShowForm(false);
       await load();
     } catch (err: unknown) {

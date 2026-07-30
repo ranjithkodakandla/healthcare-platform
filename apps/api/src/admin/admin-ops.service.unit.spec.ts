@@ -38,6 +38,7 @@ describe('AdminOpsService (unit)', () => {
         ]),
       },
       auditLog: { findMany: jest.fn().mockResolvedValue([]) },
+      consoleUser: { findMany: jest.fn().mockResolvedValue([]) },
       citizenOnboardingFlag: {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
@@ -46,6 +47,7 @@ describe('AdminOpsService (unit)', () => {
       resourceHold: { count: jest.fn().mockResolvedValue(10) },
       case: {
         count: jest.fn().mockResolvedValue(3),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([
           {
             status: 'RESOLVED',
@@ -121,6 +123,62 @@ describe('AdminOpsService (unit)', () => {
     await service.updateTicket('t1', { status: 'OPEN', priority: 'HIGH', assignedAgent: 'a', internalNotes: 'n', actor: 'admin' });
   });
 
+  it('appends internal notes instead of overwriting them (UAT #17)', async () => {
+    const { service, prisma } = build();
+    prisma.supportTicket.findFirst.mockResolvedValueOnce({
+      id: 't1',
+      ticketNumber: 'TCK-1',
+      status: 'OPEN',
+      internalNotes: 'first note',
+    });
+    await service.updateTicket('t1', { internalNotes: 'second note', actor: 'agent@sahayak' });
+
+    const updateCall = prisma.supportTicket.update.mock.calls[0][0];
+    expect(updateCall.data.internalNotes).toContain('first note');
+    expect(updateCall.data.internalNotes).toContain('second note');
+    expect(updateCall.data.internalNotes).toContain('agent@sahayak');
+  });
+
+  it('rejects re-resolving or adding notes to an already-resolved ticket (UAT #21)', async () => {
+    const { service, prisma } = build();
+    prisma.supportTicket.findFirst.mockResolvedValue({
+      id: 't1',
+      ticketNumber: 'TCK-1',
+      status: 'RESOLVED',
+      internalNotes: 'closed out',
+    });
+
+    await expect(
+      service.updateTicket('t1', { status: 'RESOLVED', actor: 'admin' }),
+    ).rejects.toThrow(/already resolved|resolved.*reopen|reopen.*resolving/i);
+
+    await expect(
+      service.updateTicket('t1', { internalNotes: 'late addition', actor: 'admin' }),
+    ).rejects.toThrow(/reopen/i);
+
+    // Reopening (an explicit status change away from RESOLVED/CLOSED) is allowed.
+    await expect(
+      service.updateTicket('t1', { status: 'IN_PROGRESS', actor: 'admin' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('does not attempt a Case lookup for PROVIDER ticket entityRef (UAT #18/#20)', async () => {
+    const { service, prisma } = build();
+    prisma.supportTicket.findFirst.mockResolvedValueOnce({
+      id: 't1',
+      ticketNumber: 'TCK-3388',
+      requesterType: 'PROVIDER',
+      entityRef: 'Apollo Hospital, Whitefield',
+    });
+    prisma.supportTicket.update.mockResolvedValueOnce({ id: 't1', accessJustification: 'Investigating HMS webhook' });
+
+    const result = await service.getTicketCaseContext('t1', 'Investigating HMS webhook', 'admin');
+
+    expect(prisma.case.findFirst).not.toHaveBeenCalled();
+    expect(result.case).toBeNull();
+    expect(result.note).toMatch(/provider "Apollo Hospital, Whitefield"/);
+  });
+
   it('searches providers and loads org detail', async () => {
     const { service, prisma, audit } = build();
     prisma.hospitalRegistry.findMany.mockResolvedValueOnce([{ hospitalId: 'hosp-1', name: 'Apollo' }]);
@@ -167,6 +225,26 @@ describe('AdminOpsService (unit)', () => {
     expect(cfg[0].title).toMatch(/Hold-expiry|sla|Staleness|hold_expiry/i);
     await service.searchAudit('actor');
     await service.searchAudit();
+
+    // UAT #30 regression: actor should resolve to a human-readable console-user
+    // label (email + role) when the raw `actor` (a Firebase UID) matches a known
+    // console user, instead of always surfacing the opaque uid string.
+    prisma.auditLog.findMany.mockResolvedValueOnce([
+      { id: 'a1', actor: 'uid-abc123', action: 'LOGIN', entityType: 'Session', entityId: 'e1', createdAt: new Date() },
+    ]);
+    prisma.consoleUser.findMany.mockResolvedValueOnce([
+      { firebaseUid: 'uid-abc123', email: 'agent@sahayak.example', role: 'SUPPORT_AGENT' },
+    ]);
+    const [resolved] = await service.searchAudit();
+    expect(resolved.actorLabel).toBe('agent@sahayak.example (SUPPORT AGENT)');
+
+    prisma.auditLog.findMany.mockResolvedValueOnce([
+      { id: 'a2', actor: 'unknown-uid', action: 'LOGIN', entityType: 'Session', entityId: 'e2', createdAt: new Date() },
+    ]);
+    prisma.consoleUser.findMany.mockResolvedValueOnce([]);
+    const [unresolved] = await service.searchAudit();
+    expect(unresolved.actorLabel).toBe('unknown-uid');
+
     await service.listCitizenFlags();
     prisma.citizenOnboardingFlag.findUnique.mockResolvedValueOnce(null);
     await expect(service.updateCitizenFlag('x', 'RESOLVED', 'a', 'ok', 'CLEARED')).rejects.toBeInstanceOf(
@@ -220,6 +298,18 @@ describe('AdminOpsService (unit)', () => {
     prisma.platformConfig.findMany.mockResolvedValueOnce([]);
     const sla2 = await service.getSlaAndAnalyticsSnapshot();
     expect(sla2.rollup.goldenHourCompliancePercent).toBeNull();
+    // UAT #25 regression: zero volume in the 30d window must never render as a
+    // false BREACH (it previously did, because a Math.max(d, 1) denominator
+    // turned "no data" into a real 0%). It must be a neutral "no data" state.
+    for (const def of sla2.definitions.filter((d) => d.key !== 'GOLDEN_HOUR')) {
+      expect(def.status).toBe('NO_DATA');
+      expect(def.variant).toBe('neutral');
+    }
+    for (const row of sla2.compliance30d) {
+      expect(row.status).toBe('NO_DATA');
+      expect(row.variant).toBe('neutral');
+      expect(row.compliancePercent).toBeNull();
+    }
 
     // low compliance band (<85)
     prisma.ambulanceRequest.count.mockResolvedValue(100);

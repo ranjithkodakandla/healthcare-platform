@@ -93,13 +93,31 @@ export class AdminOpsService {
 
   async updateTicket(id: string, input: UpdateTicketInput) {
     const existing = await this.getTicket(id);
+    const isClosed = existing.status === 'RESOLVED' || existing.status === 'CLOSED';
+    // A resolved/closed ticket is a terminal record — the only allowed mutation
+    // once closed is an explicit reopen (status change away from RESOLVED/CLOSED).
+    // Adding notes or re-resolving an already-closed ticket silently would let a
+    // ticket be "commented on" or "re-resolved" forever with no visible reopen step.
+    const isReopen = input.status != null && input.status !== 'RESOLVED' && input.status !== 'CLOSED';
+    if (isClosed && !isReopen) {
+      throw new BadRequestException(
+        `Ticket ${existing.ticketNumber} is ${existing.status.toLowerCase()} — reopen it (change status) before adding notes or resolving again`,
+      );
+    }
+    // internalNotes is an append-only note log, not a full-text replacement — each
+    // call adds one timestamped, attributed entry rather than overwriting history.
+    let internalNotes = existing.internalNotes ?? undefined;
+    if (input.internalNotes != null && input.internalNotes.trim()) {
+      const entry = `[${new Date().toISOString()}] ${input.actor}: ${input.internalNotes.trim()}`;
+      internalNotes = existing.internalNotes ? `${existing.internalNotes}\n${entry}` : entry;
+    }
     const ticket = await this.prisma.supportTicket.update({
       where: { id: existing.id },
       data: {
         ...(input.status != null ? { status: input.status } : {}),
         ...(input.priority != null ? { priority: input.priority } : {}),
         ...(input.assignedAgent != null ? { assignedAgent: input.assignedAgent } : {}),
-        ...(input.internalNotes != null ? { internalNotes: input.internalNotes } : {}),
+        ...(internalNotes !== (existing.internalNotes ?? undefined) ? { internalNotes } : {}),
       },
     });
     await this.audit.record({
@@ -191,7 +209,7 @@ export class AdminOpsService {
       {
         name: 'Bed inventory freshness',
         value: staleBeds === 0 ? 'Fresh' : `${staleBeds} stale`,
-        note: '§13.1 staleness',
+        note: 'Section 13.1 staleness',
         variant: staleBeds > 0 ? 'warning' : 'success',
       },
     ];
@@ -266,10 +284,29 @@ export class AdminOpsService {
           ],
         }
       : {};
-    return this.prisma.auditLog.findMany({
+    const rows = await this.prisma.auditLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: Math.min(limit, 200),
+    });
+    // `actor` is stored as whatever identifier the caller had at write time — almost
+    // always a Firebase UID (an opaque hash-like string), never a human-readable
+    // name (UAT #30). Resolve it against the known console-user directory here,
+    // read-side only, so the audit_log write path/schema stays untouched.
+    const uids = Array.from(new Set(rows.map((r) => r.actor).filter(Boolean)));
+    const consoleUsers = uids.length
+      ? await this.prisma.consoleUser.findMany({
+          where: { firebaseUid: { in: uids } },
+          select: { firebaseUid: true, email: true, role: true },
+        })
+      : [];
+    const byUid = new Map(consoleUsers.map((u) => [u.firebaseUid as string, u]));
+    return rows.map((r) => {
+      const match = byUid.get(r.actor);
+      return {
+        ...r,
+        actorLabel: match ? `${match.email} (${match.role.replace(/_/g, ' ')})` : r.actor,
+      };
     });
   }
 
@@ -365,6 +402,20 @@ export class AdminOpsService {
       return { ticket: updated, case: null, timeline: [], note: 'No entityRef on this ticket' };
     }
 
+    // PROVIDER tickets carry a facility/org name or id in entityRef (e.g. "Apollo
+    // Hospital, Whitefield"), not a Case id/number — there is no Case to look up for
+    // them by design. Previously this unconditionally searched Case by entityRef for
+    // every ticket type, producing a confusing "No case found for entityRef <facility
+    // name>" message that read as an error rather than an expected no-op (UAT #18/#20).
+    if (ticket.requesterType === 'PROVIDER') {
+      return {
+        ticket: updated,
+        case: null,
+        timeline: [],
+        note: `This ticket is linked to provider "${ref}", not a citizen case — no case timeline applies.`,
+      };
+    }
+
     const kase = await this.prisma.case.findFirst({
       where: { OR: [{ id: ref }, { caseNumber: ref }] },
     });
@@ -442,16 +493,22 @@ export class AdminOpsService {
         c.updatedAt <= c.goldenHourTargetDeadline,
     ).length;
 
-    const pct = (n: number, d: number) => (d === 0 ? 100 : Math.round((n / d) * 1000) / 10);
-    const band = (p: number): { status: string; variant: 'success' | 'warning' | 'danger' } => {
+    // Returns null (not 0% / not 100%) when there's zero volume in the 30d window —
+    // there is nothing to be "breached" or "compliant" against yet. Previously this
+    // forced the denominator to Math.max(d, 1), which silently turned "no data" into
+    // a real 0% and rendered every metric as BREACH on a fresh/quiet environment.
+    const pct = (n: number, d: number): number | null => (d === 0 ? null : Math.round((n / d) * 1000) / 10);
+    const band = (p: number | null): { status: string; variant: 'success' | 'warning' | 'danger' | 'neutral' } => {
+      if (p == null) return { status: 'NO_DATA', variant: 'neutral' };
       if (p >= 95) return { status: 'WITHIN_SLA', variant: 'success' };
       if (p >= 85) return { status: 'WATCH', variant: 'warning' };
       return { status: 'BREACH', variant: 'danger' };
     };
+    const pctLabel = (p: number | null, suffix: string) => (p == null ? 'n/a (no activity in 30d)' : `${p}%${suffix}`);
 
-    const ambPct = pct(ambMatched, Math.max(ambTotal, 1));
-    const holdPct = pct(holdsConfirmedOnTime, Math.max(holdsTotal, 1));
-    const ticketPct = pct(ticketsResolved, Math.max(ticketsTotal, 1));
+    const ambPct = pct(ambMatched, ambTotal);
+    const holdPct = pct(holdsConfirmedOnTime, holdsTotal);
+    const ticketPct = pct(ticketsResolved, ticketsTotal);
     const goldenPct = goldenCases.length === 0 ? null : pct(goldenOk, goldenCases.length);
 
     const ambTarget = configRows.find((r) => /ambulance|dispatch/i.test(r.label))?.value ?? '90s P95';
@@ -464,7 +521,7 @@ export class AdminOpsService {
         name: 'Ambulance dispatch (BR-01)',
         definition: 'Case → matched driver (proxy for en-route SLA)',
         target: ambTarget,
-        currentP95: `${ambPct}% matched (30d)`,
+        currentP95: pctLabel(ambPct, ' matched (30d)'),
         ...band(ambPct),
       },
       {
@@ -472,7 +529,7 @@ export class AdminOpsService {
         name: 'Resource hold confirmation',
         definition: 'Hold reaches CONFIRMED before release/expiry',
         target: holdTarget,
-        currentP95: `${holdPct}% confirmed (30d)`,
+        currentP95: pctLabel(holdPct, ' confirmed (30d)'),
         ...band(holdPct),
       },
       {
@@ -480,7 +537,7 @@ export class AdminOpsService {
         name: 'Support ticket resolution',
         definition: 'Tickets closed/resolved within 30d window',
         target: supportTarget,
-        currentP95: `${ticketPct}% resolved (30d)`,
+        currentP95: pctLabel(ticketPct, ' resolved (30d)'),
         ...band(ticketPct),
       },
       {

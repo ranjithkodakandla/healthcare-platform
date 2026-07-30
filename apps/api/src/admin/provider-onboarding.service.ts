@@ -86,7 +86,12 @@ export class ProviderOnboardingService {
             data: {
               hospitalId: orgId,
               name: input.legalName,
-              address: 'To be confirmed',
+              // Address is deliberately left unset (not a placeholder string like
+              // "To be confirmed") — the onboarding form only captures city. Rendering
+              // an unset address alongside a "Live registry" badge previously read as
+              // a contradiction (UAT #32); the frontend now only renders the address
+              // line when a real value exists (apps/admin-console providers page).
+              address: null,
               city: input.city?.trim() || 'Bengaluru',
               state: 'KA',
               lat: 12.9716,

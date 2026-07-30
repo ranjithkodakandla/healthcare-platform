@@ -42,6 +42,7 @@ export default function UsersPage() {
   const [manageRole, setManageRole] = useState('SUPPORT_AGENT');
   const [manageBusy, setManageBusy] = useState(false);
   const [resyncMsg, setResyncMsg] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -68,6 +69,28 @@ export default function UsersPage() {
     setManageRole(u.role);
     setError(null);
     setResyncMsg(null);
+    setNewPassword('');
+  };
+
+  // UAT #35: a console user created with no password (the invite form's password
+  // field is optional) previously had no way to get one afterward — "Resync
+  // access" (below) had nothing to resync since no Firebase account existed yet.
+  // This calls the already-existing POST /console-users/:id/password endpoint.
+  const setPassword = async () => {
+    if (!manageUser || !newPassword.trim()) return;
+    setManageBusy(true);
+    setError(null);
+    setResyncMsg(null);
+    try {
+      await adminApi.users.setPassword(manageUser.id, newPassword.trim());
+      setResyncMsg(`Password set for ${manageUser.email} — they can sign in now.`);
+      setNewPassword('');
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Set password failed');
+    } finally {
+      setManageBusy(false);
+    }
   };
 
   const resyncClaims = async () => {
@@ -207,6 +230,28 @@ export default function UsersPage() {
             </Button>
             <Button size="sm" variant="outline" onClick={() => setManageUser(null)} disabled={manageBusy}>
               Close
+            </Button>
+          </div>
+          <div className="flex gap-3 flex-wrap items-end mt-3 pt-3 border-t border-[#E7EBEC]">
+            <div className="min-w-[220px]">
+              <label className="text-[11px] text-[#7C8388] font-medium block mb-1" htmlFor="manage-password">
+                {manageUser.firebaseUid ? 'Reset password' : 'Set password (required to sign in)'}
+              </label>
+              <input
+                id="manage-password"
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full h-9 px-3 rounded-md border border-[#E7EBEC] text-[13px]"
+                placeholder="New password (min 8 characters)"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => void setPassword()}
+              disabled={manageBusy || newPassword.trim().length < 8}
+            >
+              {manageUser.firebaseUid ? 'Reset password' : 'Set password'}
             </Button>
           </div>
         </Card>

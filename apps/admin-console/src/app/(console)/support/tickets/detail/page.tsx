@@ -49,7 +49,7 @@ function TicketDetailContent() {
     try {
       const res = await adminApi.support.getTicket(id);
       setTicket(res.data);
-      setNote(res.data.internalNotes ?? '');
+      setNote('');
       setError(null);
     } catch (err: unknown) {
       setTicket(null);
@@ -66,12 +66,15 @@ function TicketDetailContent() {
 
   useEffect(() => { load(); }, [load]);
 
+  const isClosed = ticket?.status === 'RESOLVED' || ticket?.status === 'CLOSED';
+
   const saveNote = async () => {
-    if (!ticket) return;
+    if (!ticket || !note.trim()) return;
     setSaving(true);
     try {
       const res = await adminApi.support.updateTicket(ticket.id, { internalNotes: note });
       setTicket(res.data);
+      setNote('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -170,16 +173,25 @@ function TicketDetailContent() {
               ) : (
                 <div className="mb-3 text-[12px] text-[#7C8388]">No notes yet.</div>
               )}
+              {isClosed && (
+                <div className="mb-3 text-[12px] font-medium" style={{ color: '#7C8388' }}>
+                  This ticket is {ticket.status.toLowerCase()}. Reopen it to add notes or resolve again.
+                </div>
+              )}
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="w-full min-h-[100px] border border-[#C7CDD0] rounded-md p-3 text-[13px]"
+                className="w-full min-h-[100px] border border-[#C7CDD0] rounded-md p-3 text-[13px] disabled:opacity-50"
                 placeholder="Add an internal note…"
+                disabled={isClosed}
               />
               <div className="flex gap-2 mt-3">
-                <Button size="sm" onClick={saveNote} disabled={saving}>Save note</Button>
-                <Button size="sm" variant="secondary" onClick={() => setStatus('IN_PROGRESS')} disabled={saving}>Mark in progress</Button>
-                <Button size="sm" variant="outline" onClick={() => setStatus('RESOLVED')} disabled={saving}>Resolve</Button>
+                <Button size="sm" onClick={saveNote} disabled={saving || isClosed || !note.trim()}>Save note</Button>
+                <Button size="sm" variant="secondary" onClick={() => setStatus('IN_PROGRESS')} disabled={saving || isClosed}>Mark in progress</Button>
+                <Button size="sm" variant="outline" onClick={() => setStatus('RESOLVED')} disabled={saving || isClosed}>Resolve</Button>
+                {isClosed && (
+                  <Button size="sm" variant="ghost" onClick={() => setStatus('IN_PROGRESS')} disabled={saving}>Reopen ticket</Button>
+                )}
               </div>
             </Card>
           </div>

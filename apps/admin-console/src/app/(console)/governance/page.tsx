@@ -180,7 +180,7 @@ export default function GovernancePage() {
                       <td className="px-5 py-3 text-[#7C8388] whitespace-nowrap">
                         {new Date(row.createdAt).toLocaleString('en-IN')}
                       </td>
-                      <td className="px-5 py-3 font-medium text-[#1A1D1F]">{row.actor}</td>
+                      <td className="px-5 py-3 font-medium text-[#1A1D1F]" title={row.actor}>{row.actorLabel ?? row.actor}</td>
                       <td className="px-5 py-3 text-[#4A5054]">{row.action}</td>
                       <td className="px-5 py-3 font-mono text-[12px]">{row.entityType}:{row.entityId.slice(0, 8)}</td>
                       <td className="px-5 py-3"><Badge variant="success">Success</Badge></td>

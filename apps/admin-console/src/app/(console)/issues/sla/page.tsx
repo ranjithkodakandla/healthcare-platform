@@ -82,7 +82,9 @@ export default function SlaPage() {
                   <tr key={r.category} className="border-b border-[#E7EBEC]">
                     <td className="px-4 py-3 font-semibold">{r.category}</td>
                     <td className="px-4 py-3">{r.volumeLabel}</td>
-                    <td className="px-4 py-3 font-mono">{r.compliancePercent}%</td>
+                    <td className="px-4 py-3 font-mono">
+                      {r.compliancePercent == null ? 'n/a' : `${r.compliancePercent}%`}
+                    </td>
                     <td className="px-4 py-3"><Badge variant={r.variant}>{r.status.replace(/_/g, ' ')}</Badge></td>
                   </tr>
                 ))}

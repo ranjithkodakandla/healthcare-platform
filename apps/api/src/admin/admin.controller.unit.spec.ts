@@ -31,6 +31,7 @@ describe('AdminController (unit)', () => {
       createConsoleUser: jest.fn().mockResolvedValue({ id: 'u1' }),
       updateConsoleUser: jest.fn().mockResolvedValue({ id: 'u1', status: 'ACTIVE' }),
       resyncConsoleClaims: jest.fn().mockResolvedValue({ email: 'ranjith@sahyak.test', firebaseUid: 'fb1' }),
+      setConsolePassword: jest.fn().mockResolvedValue({ email: 'noaccount@sahayak.test', firebaseUid: 'fb2' }),
     };
     const c = new AdminController(onboarding as never, consoleUsers as never);
     const user = { uid: 'admin' };
@@ -50,6 +51,10 @@ describe('AdminController (unit)', () => {
     const claimsResync = await c.resyncConsoleClaims('u1', user as never);
     expect(consoleUsers.resyncConsoleClaims).toHaveBeenCalledWith('u1', 'admin');
     expect(claimsResync.data.firebaseUid).toBe('fb1');
+    // UAT #35: admin can set a password for a console user who has none.
+    const setPw = await c.setConsolePassword('u1', { password: 'BrandNewPass1' } as never, user as never);
+    expect(consoleUsers.setConsolePassword).toHaveBeenCalledWith('u1', 'BrandNewPass1', 'admin');
+    expect(setPw.data.firebaseUid).toBe('fb2');
     expect(onboarding.isPortalLive).toHaveBeenCalled();
   });
 });
